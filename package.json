@@ -1,0 +1,47 @@
+{
+  "name": "workout-caller",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "dependencies": {
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "@anthropic-ai/sdk": "0.125.0",
+    "@supabase/supabase-js": "2.116.0",
+    "@supabase/ssr": "0.12.7",
+    "zod": "4.6.2",
+    "date-fns": "4.4.0",
+    "date-fns-tz": "3.2.0",
+    "idb-keyval": "6.3.0",
+    "uuid": "14.0.2",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3",
+    "@tailwindcss/postcss": "4.3.3",
+    "postcss": "8.5.28",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.5",
+    "prettier": "3.9.6",
+    "vitest": "5.0.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/jest-dom": "7.0.1",
+    "happy-dom": "20.14.3"
+  }
+}

@@ -1,0 +1,11 @@
+# Minimal config for running this project's migrations against the
+# Supabase CLI's local dev stack (`supabase start`), if you choose to use
+# it. Not required for the hosted-Supabase-project workflow documented in
+# the README, which is the path most people should use.
+project_id = "workout-caller"
+
+[db]
+port = 54322
+
+[api]
+port = 54321
