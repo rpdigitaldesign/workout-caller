@@ -2,6 +2,49 @@
 
 A personal, iPhone/iPad-first workout timer, library, history, calendar, and AI-assisted planner. You paste (or type) a workout in plain English, review it, and the app calls out each exercise and rest period out loud while you exercise — hands-free, headphones-friendly, and fully offline-resilient once a workout has started.
 
+## Plain-English Quick Start (especially for iPhone)
+
+Everything in this section is explained again in more technical detail further down — if a step here feels too brief, look for the matching numbered section below (each step says which one).
+
+A quick heads up: the *first-time setup* has to be done once on a computer (not your iPhone), because it involves creating a couple of accounts and copying a few codes into a file. Once that one-time setup is done, though, you'll open and use the app entirely from your iPhone from then on, just like any other app.
+
+**What you're actually setting up, in plain terms:**
+- One account (Anthropic) that lets the app "understand" workouts you type in normal sentences.
+- One account (Supabase) that acts like your own private notebook where the app saves your workouts, your history, and your calendar.
+- A free website-hosting service (Vercel) that takes this project and turns it into a real, working website with its own web address you can open on your phone.
+
+**Step 1 — Get two "secret codes" (a computer is needed for this part)**
+
+Think of these like passwords the app uses to talk to the two services above — you copy them once and never think about them again.
+
+1. Go to Anthropic's website and create your first "API key" (full plain-language steps in section 2 below). Copy it somewhere safe for a minute.
+2. Go to Supabase and create a free project (full plain-language steps in section 3 below). Copy the project's web address and a long code called the "anon key."
+3. While you're in Supabase, also create your own login — an email and password just for this app. That's what you'll type in on your phone later to sign in.
+
+**Step 2 — Put those codes into the project's settings**
+
+On the computer, in the project folder, there's a file template called `.env.example`. Make a copy of it named `.env.local` and paste your codes from Step 1 into it. (Section 1 below shows the exact commands.)
+
+**Step 3 — Publish it to the internet**
+
+Take the project folder to Vercel (a free hosting service — section 8 below has the exact steps) and tell it to "deploy" it. In a couple of minutes, Vercel gives you a real web address (something like `workout-caller.vercel.app`) — that's the address you'll use on your iPhone.
+
+**Step 4 — Open it on your iPhone**
+
+1. On your iPhone, open the **Safari** app (this has to be Safari, not Chrome or another browser, for the next step to work).
+2. Type in the web address from Step 3 and go to it.
+3. You'll see a sign-in screen — enter the email and password you created in Step 1.
+4. Tap the **Share** button at the bottom of the screen (the square with an arrow pointing up).
+5. Scroll down in the menu that pops up and tap **Add to Home Screen**.
+6. Tap **Add** in the top corner.
+7. Go to your Home Screen — you'll see a new **Workout Caller** icon, just like any other app. Tap it to open the app full-screen from now on.
+
+**Step 5 — The very first workout you start**
+
+The very first time you tap "Start Workout," your phone will ask (or just quietly allow) the app to make sound — that's normal and only happens once. After that, it'll announce each exercise and rest period out loud automatically.
+
+That's it — everything below is the same information again, in more technical detail, in case you want it or run into something unexpected.
+
 ## Requirements
 
 - Node.js 20+ (developed against Node 25; anything reasonably current works)

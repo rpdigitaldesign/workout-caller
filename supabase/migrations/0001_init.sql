@@ -4,7 +4,7 @@
 -- by the application (Zod) on every read and write — Postgres only
 -- guarantees "is valid JSON", not "matches the WorkoutSchema shape".
 
-create extension if not exists pgcrypto; -- gen_random_uuid()
+create extension if not exists pgcrypto;
 
 create or replace function set_updated_at()
 returns trigger
@@ -14,6 +14,20 @@ begin
   new.updated_at = now();
   return new;
 end;
+$$;
+
+create or replace function jsonb_tags_to_text_array(data jsonb)
+returns text[]
+language sql
+immutable
+as $$
+  select coalesce(
+    array_agg(value),
+    '{}'::text[]
+  )
+  from jsonb_array_elements_text(
+    coalesce(data -> 'tags', '[]'::jsonb)
+  ) as t(value);
 $$;
 
 -- ---------------------------------------------------------------------
@@ -26,10 +40,13 @@ create table workout_templates (
   workout jsonb not null,
   source text not null check (source in ('ai', 'manual')),
   parent_template_id uuid references workout_templates(id) on delete set null,
+
   title text generated always as (workout ->> 'title') stored,
+
   tags text[] generated always as (
-    array(select jsonb_array_elements_text(coalesce(workout -> 'tags', '[]'::jsonb)))
+    jsonb_tags_to_text_array(workout)
   ) stored,
+
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
