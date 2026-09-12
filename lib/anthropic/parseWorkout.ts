@@ -77,23 +77,29 @@ export async function parseWorkoutFromText(rawText: string): Promise<ParseWorkou
   }
 
   const aiParsed = AiWorkoutSchema.safeParse(result.toolInput);
-  if (!aiParsed.success) {
-    return {
-      ok: false,
-      error: 'invalid_ai_output',
-      message: "We couldn't interpret that workout. Try clarifying the unclear section.",
-    };
-  }
+if (!aiParsed.success) {
+  console.error('AI WORKOUT SCHEMA VALIDATION FAILED:', aiParsed.error.issues);
+  console.error('CLAUDE TOOL INPUT:', JSON.stringify(result.toolInput, null, 2));
+
+  return {
+    ok: false,
+    error: 'invalid_ai_output',
+    message: "We couldn't interpret that workout. Try clarifying the unclear section.",
+  };
+}
 
   const workout = attachIds(aiParsed.data);
   const validated = WorkoutSchema.safeParse(workout);
-  if (!validated.success) {
-    return {
-      ok: false,
-      error: 'invalid_ai_output',
-      message: "The parsed workout didn't look right (e.g. too many intervals or an invalid duration). Try simplifying it or create it manually.",
-    };
-  }
+if (!validated.success) {
+  console.error('WORKOUT SCHEMA VALIDATION FAILED:', validated.error.issues);
+  console.error('ATTACHED WORKOUT:', JSON.stringify(workout, null, 2));
+
+  return {
+    ok: false,
+    error: 'invalid_ai_output',
+    message: "The parsed workout didn't look right (e.g. too many intervals or an invalid duration). Try simplifying it or create it manually.",
+  };
+}
 
   return { ok: true, workout: validated.data };
 }

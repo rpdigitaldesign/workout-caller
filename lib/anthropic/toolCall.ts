@@ -43,8 +43,9 @@ export async function callClaudeWithTool(params: {
       tool_choice: { type: 'auto' },
     });
   } catch (error) {
-    throw toClaudeCallError(error);
-  }
+  console.error('Anthropic API call failed:', error);
+  throw toClaudeCallError(error);
+}
 
   const toolUseBlock = response.content.find(
     (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use' && block.name === params.toolName,
