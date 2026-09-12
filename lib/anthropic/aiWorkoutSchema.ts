@@ -17,7 +17,7 @@ const AiWorkoutStepSchema = z.object({
   type: z.enum(['exercise', 'rest']),
   name: z.string().trim().min(1).max(LIMITS.STEP_NAME_MAX),
   // null when the source text truly doesn't specify a duration — never guessed.
-  durationSeconds: z.number().int().positive().max(LIMITS.MAX_STEP_SECONDS).nullable(),
+  durationSeconds: z.number().int().positive().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
   reps: z.number().int().positive().max(LIMITS.MAX_REPS).nullable().optional(),
   notes: z.string().trim().max(LIMITS.NOTES_MAX).nullable().optional(),
 });
