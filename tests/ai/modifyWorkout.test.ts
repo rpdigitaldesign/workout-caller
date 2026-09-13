@@ -20,6 +20,8 @@ const original: Workout = {
   title: 'Leg Day',
   rounds: 3,
   roundRestSeconds: 60,
+  postWarmupRestSeconds: 45,
+  preCooldownRestSeconds: 30,
   warmup: [],
   steps: [
     { id: uuid(), type: 'exercise', name: 'Goblet squats', durationSeconds: 40, reps: null, notes: null, announce: null },
@@ -59,6 +61,8 @@ describe('modifyWorkoutWithInstruction', () => {
         title: 'Leg Day',
         rounds: 3,
         roundRestSeconds: 60,
+        postWarmupRestSeconds: 45,
+        preCooldownRestSeconds: 30,
         steps: [
           { type: 'exercise', name: 'Goblet squats', durationSeconds: 40 },
           { type: 'rest', name: 'Rest', durationSeconds: 20 },
@@ -72,6 +76,8 @@ describe('modifyWorkoutWithInstruction', () => {
       expect(result.workout.title).toBe(original.title);
       expect(result.workout.rounds).toBe(original.rounds);
       expect(result.workout.roundRestSeconds).toBe(original.roundRestSeconds);
+      expect(result.workout.postWarmupRestSeconds).toBe(original.postWarmupRestSeconds);
+      expect(result.workout.preCooldownRestSeconds).toBe(original.preCooldownRestSeconds);
       // Unaffected steps keep their original id (best-effort positional match).
       expect(result.workout.steps[0]!.id).toBe(original.steps[0]!.id);
       expect(result.workout.steps[1]!.id).toBe(original.steps[1]!.id);

@@ -144,16 +144,20 @@ export function ActiveRun({ workout, templateId, scheduledWorkoutId, isRecovery,
   if (phase === 'preview') {
     const estimate = estimateWorkoutDuration(workout);
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-bg px-6 text-center">
-        <h1 className="text-3xl font-bold">{workout.title}</h1>
-        <p className="text-text-muted">
-          {workout.rounds} round{workout.rounds === 1 ? '' : 's'} · Estimated {formatDuration(estimate.totalSeconds)}
-          {estimate.hasManualSteps ? '+' : ''}
-        </p>
-        <p className="max-w-sm text-sm text-text-muted">
-          For the most reliable timing, keep Workout Caller open while exercising.
-        </p>
-        <Button size="lg" onClick={handleStart}>
+      <div className="flex h-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 text-center short:py-3">
+        <h1 className="line-clamp-2 shrink-0 text-3xl font-bold short:text-xl">{workout.title}</h1>
+
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden short:gap-1.5">
+          <p className="text-text-muted short:text-sm">
+            {workout.rounds} round{workout.rounds === 1 ? '' : 's'} · Estimated {formatDuration(estimate.totalSeconds)}
+            {estimate.hasManualSteps ? '+' : ''}
+          </p>
+          <p className="line-clamp-2 max-w-sm text-sm text-text-muted short:hidden">
+            For the most reliable timing, keep Workout Caller open while exercising.
+          </p>
+        </div>
+
+        <Button size="lg" onClick={handleStart} className="shrink-0 short:min-h-10 short:py-2 short:text-sm">
           Start Workout
         </Button>
       </div>

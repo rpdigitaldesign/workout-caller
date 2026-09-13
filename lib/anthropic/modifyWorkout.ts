@@ -34,6 +34,8 @@ function attachIds(ai: AiWorkout, original: Workout): Workout {
     title: ai.title,
     rounds: ai.rounds,
     roundRestSeconds: ai.roundRestSeconds ?? null,
+    postWarmupRestSeconds: ai.postWarmupRestSeconds ?? null,
+    preCooldownRestSeconds: ai.preCooldownRestSeconds ?? null,
     warmup: withIds(ai.warmup, original.warmup),
     steps: withIds(ai.steps, original.steps),
     cooldown: withIds(ai.cooldown, original.cooldown),

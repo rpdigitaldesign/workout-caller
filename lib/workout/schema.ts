@@ -48,12 +48,21 @@ export type WorkoutStep = z.infer<typeof WorkoutStepSchema>;
  * This mirrors how the user actually describes workouts ("3 rounds of
  * squats/rest/push-ups/rest") rather than a more general but unused
  * nested-rounds structure.
+ *
+ * `postWarmupRestSeconds` and `preCooldownRestSeconds` are distinct from
+ * `roundRestSeconds` — each is a ONE-TIME rest (never repeated), inserted
+ * once between warmup and round 1, or once between the last round and
+ * cooldown. Without a dedicated field for these, an AI parse or manual
+ * entry has nowhere correct to put such a rest other than `steps`, which
+ * repeats every round — exactly the bug these two fields exist to avoid.
  */
 export const WorkoutSchema = z
   .object({
     title: z.string().trim().min(1).max(LIMITS.TITLE_MAX),
     rounds: z.number().int().positive().max(LIMITS.MAX_ROUNDS).default(1),
     roundRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
+    postWarmupRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
+    preCooldownRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
     warmup: z.array(WorkoutStepSchema).max(LIMITS.MAX_STEPS).default([]),
     steps: z.array(WorkoutStepSchema).min(1).max(LIMITS.MAX_STEPS),
     cooldown: z.array(WorkoutStepSchema).max(LIMITS.MAX_STEPS).default([]),

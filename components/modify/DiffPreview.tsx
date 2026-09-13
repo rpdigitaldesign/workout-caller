@@ -38,9 +38,17 @@ export function DiffPreview({ original, modified }: { original: Workout; modifie
   const rows = diffStepLists(original.steps, modified.steps).filter((r) => r.kind !== 'unchanged');
   const roundsChanged = original.rounds !== modified.rounds;
   const roundRestChanged = original.roundRestSeconds !== modified.roundRestSeconds;
+  const postWarmupRestChanged = original.postWarmupRestSeconds !== modified.postWarmupRestSeconds;
+  const preCooldownRestChanged = original.preCooldownRestSeconds !== modified.preCooldownRestSeconds;
   const titleChanged = original.title !== modified.title;
 
-  const nothingChanged = rows.length === 0 && !roundsChanged && !roundRestChanged && !titleChanged;
+  const nothingChanged =
+    rows.length === 0 &&
+    !roundsChanged &&
+    !roundRestChanged &&
+    !postWarmupRestChanged &&
+    !preCooldownRestChanged &&
+    !titleChanged;
 
   return (
     <Card>
@@ -65,6 +73,20 @@ export function DiffPreview({ original, modified }: { original: Workout; modifie
             Rest between rounds:{' '}
             <span className="text-text-muted line-through">{original.roundRestSeconds ?? 'none'}</span> →{' '}
             <span className="font-semibold">{modified.roundRestSeconds ?? 'none'}</span>
+          </div>
+        )}
+        {postWarmupRestChanged && (
+          <div>
+            Rest after warmup (one-time):{' '}
+            <span className="text-text-muted line-through">{original.postWarmupRestSeconds ?? 'none'}</span> →{' '}
+            <span className="font-semibold">{modified.postWarmupRestSeconds ?? 'none'}</span>
+          </div>
+        )}
+        {preCooldownRestChanged && (
+          <div>
+            Rest before cooldown (one-time):{' '}
+            <span className="text-text-muted line-through">{original.preCooldownRestSeconds ?? 'none'}</span> →{' '}
+            <span className="font-semibold">{modified.preCooldownRestSeconds ?? 'none'}</span>
           </div>
         )}
         {rows.map((row, i) => (

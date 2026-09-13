@@ -25,9 +25,10 @@ export interface EstimatedDuration {
 }
 
 /**
- * Computes total estimated duration locally — warmup + (steps x rounds,
- * with roundRestSeconds inserted after every round except the last) +
- * cooldown. This must never be delegated to Claude (spec section 13).
+ * Computes total estimated duration locally — warmup + postWarmupRestSeconds
+ * (once) + (steps x rounds, with roundRestSeconds inserted after every
+ * round except the last) + preCooldownRestSeconds (once) + cooldown. This
+ * must never be delegated to Claude (spec section 13).
  */
 export function estimateWorkoutDuration(workout: Workout): EstimatedDuration {
   let totalSeconds = 0;
@@ -37,12 +38,16 @@ export function estimateWorkoutDuration(workout: Workout): EstimatedDuration {
   totalSeconds += warmup.seconds;
   hasManualSteps ||= warmup.hasManualSteps;
 
+  totalSeconds += workout.postWarmupRestSeconds ?? 0;
+
   const perRound = sumSteps(workout.steps);
   const roundRest = workout.roundRestSeconds ?? 0;
 
   totalSeconds += perRound.seconds * workout.rounds;
   hasManualSteps ||= perRound.hasManualSteps && workout.rounds > 0;
   totalSeconds += roundRest * Math.max(0, workout.rounds - 1);
+
+  totalSeconds += workout.preCooldownRestSeconds ?? 0;
 
   const cooldown = sumSteps(workout.cooldown);
   totalSeconds += cooldown.seconds;

@@ -6,6 +6,8 @@ export function blankWorkout(): Workout {
     title: '',
     rounds: 1,
     roundRestSeconds: null,
+    postWarmupRestSeconds: null,
+    preCooldownRestSeconds: null,
     warmup: [],
     steps: [
       {

@@ -80,9 +80,16 @@ function toSegment(step: WorkoutStep, origin: SegmentOrigin, roundNumber: number
 
 /**
  * Flattens a Workout into an ordered list of Segments: warmup steps, then
- * `rounds` repetitions of `steps` (with a synthetic roundRest segment
- * between repetitions — never after the last one, and never when
- * roundRestSeconds is null or 0), then cooldown steps.
+ * (if `postWarmupRestSeconds` is set) a ONE-TIME rest, then `rounds`
+ * repetitions of `steps` (with a synthetic roundRest segment between
+ * repetitions — never after the last one, and never when roundRestSeconds
+ * is null or 0), then (if `preCooldownRestSeconds` is set) a ONE-TIME
+ * rest, then cooldown steps.
+ *
+ * The two one-time rests are represented as plain `kind: 'rest'` segments
+ * (not `roundRest`) since they aren't tied to round repetition — this
+ * reuses the existing rest handling everywhere downstream (engine state,
+ * speech, UI) with no new segment kind required.
  */
 export function buildSegments(workout: Workout): Segment[] {
   const segments: Segment[] = [];
@@ -90,6 +97,19 @@ export function buildSegments(workout: Workout): Segment[] {
 
   for (const step of workout.warmup) {
     segments.push(toSegment(step, 'warmup', null, seq++));
+  }
+
+  if (workout.postWarmupRestSeconds !== null && workout.postWarmupRestSeconds > 0) {
+    segments.push({
+      key: `postwarmuprest-${seq++}`,
+      origin: 'warmup',
+      kind: 'rest',
+      name: 'Rest',
+      durationSeconds: workout.postWarmupRestSeconds,
+      announce: null,
+      stepId: null,
+      roundNumber: null,
+    });
   }
 
   for (let round = 1; round <= workout.rounds; round++) {
@@ -109,6 +129,19 @@ export function buildSegments(workout: Workout): Segment[] {
         roundNumber: round,
       });
     }
+  }
+
+  if (workout.preCooldownRestSeconds !== null && workout.preCooldownRestSeconds > 0) {
+    segments.push({
+      key: `precooldownrest-${seq++}`,
+      origin: 'cooldown',
+      kind: 'rest',
+      name: 'Rest',
+      durationSeconds: workout.preCooldownRestSeconds,
+      announce: null,
+      stepId: null,
+      roundNumber: null,
+    });
   }
 
   for (const step of workout.cooldown) {

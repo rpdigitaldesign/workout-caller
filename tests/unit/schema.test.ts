@@ -78,6 +78,23 @@ describe('WorkoutSchema', () => {
     expect(parsed.cooldown).toEqual([]);
     expect(parsed.tags).toEqual([]);
   });
+
+  it('defaults postWarmupRestSeconds and preCooldownRestSeconds to null when omitted', () => {
+    const parsed = WorkoutSchema.parse(validWorkout());
+    expect(parsed.postWarmupRestSeconds).toBeNull();
+    expect(parsed.preCooldownRestSeconds).toBeNull();
+  });
+
+  it('accepts explicit postWarmupRestSeconds and preCooldownRestSeconds values', () => {
+    const parsed = WorkoutSchema.parse(validWorkout({ postWarmupRestSeconds: 60, preCooldownRestSeconds: 30 }));
+    expect(parsed.postWarmupRestSeconds).toBe(60);
+    expect(parsed.preCooldownRestSeconds).toBe(30);
+  });
+
+  it('rejects a negative postWarmupRestSeconds or preCooldownRestSeconds', () => {
+    expect(WorkoutSchema.safeParse(validWorkout({ postWarmupRestSeconds: -5 })).success).toBe(false);
+    expect(WorkoutSchema.safeParse(validWorkout({ preCooldownRestSeconds: -5 })).success).toBe(false);
+  });
 });
 
 describe('WorkoutCommandSchema', () => {

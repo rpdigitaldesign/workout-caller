@@ -12,6 +12,8 @@ function makeWorkout(overrides: Partial<Workout> = {}): Workout {
     title: 'Test',
     rounds: 1,
     roundRestSeconds: null,
+    postWarmupRestSeconds: null,
+    preCooldownRestSeconds: null,
     warmup: [],
     steps: [step('A', 40), step('rest', 20, 'rest'), step('B', 30)],
     cooldown: [],
@@ -55,6 +57,23 @@ describe('estimateWorkoutDuration', () => {
     const result = estimateWorkoutDuration(makeWorkout({ steps: [step('AMRAP', null)] }));
     expect(result.hasManualSteps).toBe(true);
     expect(result.totalSeconds).toBe(0);
+  });
+
+  it('includes postWarmupRestSeconds and preCooldownRestSeconds exactly once, regardless of rounds', () => {
+    const result = estimateWorkoutDuration(
+      makeWorkout({ rounds: 4, postWarmupRestSeconds: 60, preCooldownRestSeconds: 45 }),
+    );
+    expect(result.totalSeconds).toBe((40 + 20 + 30) * 4 + 60 + 45);
+  });
+
+  it('treats null/0 postWarmupRestSeconds and preCooldownRestSeconds as contributing nothing', () => {
+    const withNull = estimateWorkoutDuration(
+      makeWorkout({ postWarmupRestSeconds: null, preCooldownRestSeconds: null }),
+    );
+    const withZero = estimateWorkoutDuration(makeWorkout({ postWarmupRestSeconds: 0, preCooldownRestSeconds: 0 }));
+    const withNeither = estimateWorkoutDuration(makeWorkout());
+    expect(withNull.totalSeconds).toBe(withNeither.totalSeconds);
+    expect(withZero.totalSeconds).toBe(withNeither.totalSeconds);
   });
 });
 

@@ -7,11 +7,12 @@ Rules:
 4. Correctly interpret the number of rounds when stated (e.g. "3 rounds", "do this three times").
 5. Correctly interpret rest between exercises (a rest step within the round) versus rest between rounds (roundRestSeconds) — these are different concepts and must not be conflated.
 6. Warmup and cooldown sections, if present, go in the separate "warmup" and "cooldown" arrays, not in "steps".
-7. If a step's duration or rep count is genuinely not stated in the source text, set durationSeconds to null rather than inventing a number.
-8. Do not provide fitness, form, or safety advice of any kind.
-9. Do not change the intensity, order, or structure implied by the source text.
-10. Do not improve, simplify, or redesign the workout — your task is structural parsing only, not coaching.
-11. If the text does not describe a usable workout at all (e.g. it is unrelated text with no exercises or durations), do NOT call the tool — instead reply with one short plain-text sentence explaining that no workout could be parsed.`;
+7. A one-time rest between the warmup and the first round (e.g. "rest 1 minute after the warmup before starting") goes in "postWarmupRestSeconds" — never as a step in "steps" (which repeats every round) or as a trailing step in "warmup". Likewise, a one-time rest between the last round and the cooldown goes in "preCooldownRestSeconds" — never as a step in "steps" or a leading step in "cooldown". These are different from "roundRestSeconds", which is only the rest repeated between rounds.
+8. If a step's duration or rep count is genuinely not stated in the source text, set durationSeconds to null rather than inventing a number.
+9. Do not provide fitness, form, or safety advice of any kind.
+10. Do not change the intensity, order, or structure implied by the source text.
+11. Do not improve, simplify, or redesign the workout — your task is structural parsing only, not coaching.
+12. If the text does not describe a usable workout at all (e.g. it is unrelated text with no exercises or durations), do NOT call the tool — instead reply with one short plain-text sentence explaining that no workout could be parsed.`;
 
 export const MODIFY_WORKOUT_SYSTEM_PROMPT = `You modify a structured workout according to explicit user instructions, by calling the record_workout tool exactly once with the COMPLETE modified workout.
 

@@ -1,5 +1,16 @@
 @import 'tailwindcss';
 
+/**
+ * A height-constrained viewport, regardless of device or cause (a phone in
+ * landscape, a short desktop browser window, a keyboard covering most of
+ * the screen). Deliberately NOT the built-in `landscape:` variant, which
+ * triggers on aspect ratio and would also fire on any wide-but-tall-enough
+ * desktop window. Threshold tuned empirically against real layouts, not
+ * assumed to be a precise "phone landscape" boundary — a short desktop
+ * window intentionally gets the same compact treatment.
+ */
+@custom-variant short (@media (max-height: 500px));
+
 @theme {
   --color-bg: #0a0a0a;
   --color-surface: #161616;

@@ -43,7 +43,10 @@ export default function SessionDetailPage() {
 
       {workout.warmup.length > 0 && (
         <Card className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">Warmup</h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
+            Warmup
+            {workout.postWarmupRestSeconds ? ` · ${workout.postWarmupRestSeconds}s rest after (one-time)` : ''}
+          </h2>
           <ul>
             {workout.warmup.map((s) => (
               <StepLine key={s.id} step={s} />
@@ -56,6 +59,7 @@ export default function SessionDetailPage() {
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
           {workout.rounds} round{workout.rounds === 1 ? '' : 's'}
           {workout.roundRestSeconds ? ` · ${workout.roundRestSeconds}s between rounds` : ''}
+          {workout.preCooldownRestSeconds ? ` · ${workout.preCooldownRestSeconds}s rest after (one-time)` : ''}
         </h2>
         <ul>
           {workout.steps.map((s) => (

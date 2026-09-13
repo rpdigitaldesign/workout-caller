@@ -62,6 +62,31 @@ describe('parseWorkoutFromText', () => {
     }
   });
 
+  it('puts a one-time post-warmup rest in postWarmupRestSeconds, not duplicated into every round', async () => {
+    mockCreate.mockResolvedValueOnce(
+      toolUseResponse('record_workout', {
+        title: 'Walking Warmup Circuit',
+        rounds: 3,
+        roundRestSeconds: 60,
+        postWarmupRestSeconds: 60,
+        warmup: [{ type: 'exercise', name: 'Walking warmup', durationSeconds: 300 }],
+        steps: [{ type: 'exercise', name: 'Burpees', durationSeconds: 40 }],
+      }),
+    );
+    const result = await parseWorkoutFromText(
+      'Walking warmup — 5 min. Do 3 complete rounds of burpees for 40 seconds. Rest 1 minute after the warmup and before starting the main workout. Rest 1 minute between rounds.',
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.workout.postWarmupRestSeconds).toBe(60);
+      expect(result.workout.roundRestSeconds).toBe(60);
+      // The one-time rest must not also appear as an extra step repeated every round.
+      expect(result.workout.steps).toHaveLength(1);
+      expect(result.workout.steps[0]!.name).toBe('Burpees');
+      expect(result.workout.warmup).toHaveLength(1);
+    }
+  });
+
   it('returns invalid_ai_output when the model declines to call the tool (unparseable input)', async () => {
     mockCreate.mockResolvedValueOnce(textResponse('That does not look like a workout.'));
     const result = await parseWorkoutFromText('what is the capital of France');

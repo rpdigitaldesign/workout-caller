@@ -12,6 +12,8 @@ function makeWorkout(overrides: Partial<Workout> = {}): Workout {
     title: 'Test Workout',
     rounds: 1,
     roundRestSeconds: null,
+    postWarmupRestSeconds: null,
+    preCooldownRestSeconds: null,
     warmup: [],
     steps: [step('Squats', 40), step('Rest', 20, 'rest'), step('Push-ups', 30)],
     cooldown: [],
@@ -59,6 +61,62 @@ describe('buildSegments', () => {
     const workout = makeWorkout({ rounds: 2, roundRestSeconds: 15 });
     const segments = buildSegments(workout);
     expect(segments[segments.length - 1]!.kind).not.toBe('roundRest');
+  });
+
+  it('inserts a one-time rest segment after warmup and before round 1 when postWarmupRestSeconds is set', () => {
+    const workout = makeWorkout({
+      warmup: [step('Walking warmup', 300)],
+      steps: [step('Squats', 40)],
+      rounds: 3,
+      postWarmupRestSeconds: 60,
+    });
+    const segments = buildSegments(workout);
+    // warmup(1) + postWarmupRest(1) + 3 rounds * 1 step = 5
+    expect(segments).toHaveLength(1 + 1 + 3);
+    expect(segments[0]!.name).toBe('Walking warmup');
+    expect(segments[1]!.kind).toBe('rest');
+    expect(segments[1]!.durationSeconds).toBe(60);
+    expect(segments[1]!.origin).toBe('warmup');
+    expect(segments[1]!.roundNumber).toBeNull();
+    // It occurs exactly once, not once per round.
+    expect(segments.filter((s) => s.durationSeconds === 60).length).toBe(1);
+    expect(segments[2]!.name).toBe('Squats');
+    expect(segments[2]!.roundNumber).toBe(1);
+  });
+
+  it('inserts a one-time rest segment after the last round and before cooldown when preCooldownRestSeconds is set', () => {
+    const workout = makeWorkout({
+      steps: [step('Squats', 40)],
+      rounds: 2,
+      cooldown: [step('Stretch', 60)],
+      preCooldownRestSeconds: 30,
+    });
+    const segments = buildSegments(workout);
+    // 2 rounds * 1 step + preCooldownRest(1) + cooldown(1) = 4
+    expect(segments).toHaveLength(2 + 1 + 1);
+    expect(segments[2]!.kind).toBe('rest');
+    expect(segments[2]!.durationSeconds).toBe(30);
+    expect(segments[2]!.origin).toBe('cooldown');
+    expect(segments[2]!.roundNumber).toBeNull();
+    expect(segments[3]!.name).toBe('Stretch');
+    // It occurs exactly once, not once per round.
+    expect(segments.filter((s) => s.durationSeconds === 30).length).toBe(1);
+  });
+
+  it('omits the one-time rests when null or 0, distinct from roundRestSeconds', () => {
+    const workout = makeWorkout({
+      warmup: [step('Warmup', 60)],
+      steps: [step('Squats', 40)],
+      rounds: 2,
+      cooldown: [step('Stretch', 60)],
+      roundRestSeconds: 15,
+      postWarmupRestSeconds: 0,
+      preCooldownRestSeconds: null,
+    });
+    const segments = buildSegments(workout);
+    // warmup(1) + round1 step(1) + roundRest(1) + round2 step(1) + cooldown(1) = 5 — no post-warmup/pre-cooldown rest.
+    expect(segments).toHaveLength(5);
+    expect(segments.filter((s) => s.kind === 'rest' && s.stepId === null && s.origin !== 'main').length).toBe(0);
   });
 });
 
@@ -309,5 +367,55 @@ describe('WorkoutEngine', () => {
     snap = engine.resume(T0 + 5000 + 60_000);
     snap = engine.tick(T0 + 5000 + 60_000 + 2000);
     expect(snap.elapsedTotalMs).toBe(7000);
+  });
+
+  it('plays through warmup -> one-time post-warmup rest -> round 1, occurring only once even across multiple rounds', () => {
+    const workout = makeWorkout({
+      warmup: [step('Walking warmup', 300)],
+      steps: [step('Squats', 40)],
+      rounds: 2,
+      postWarmupRestSeconds: 60,
+    });
+    const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
+    let snap = engine.start(T0);
+    expect(snap.state).toBe('exercise');
+    expect(snap.currentSegment?.name).toBe('Walking warmup');
+
+    snap = engine.tick(T0 + 300_000);
+    expect(snap.state).toBe('rest');
+    expect(snap.remainingMs).toBe(60_000);
+
+    snap = engine.tick(T0 + 300_000 + 60_000);
+    expect(snap.state).toBe('exercise');
+    expect(snap.currentSegment?.name).toBe('Squats');
+    expect(snap.roundNumber).toBe(1);
+
+    // Advance into round 2 — the post-warmup rest must not repeat.
+    snap = engine.tick(T0 + 300_000 + 60_000 + 40_000);
+    expect(snap.state).toBe('exercise');
+    expect(snap.roundNumber).toBe(2);
+  });
+
+  it('plays through the last round -> one-time pre-cooldown rest -> cooldown', () => {
+    const workout = makeWorkout({
+      steps: [step('Squats', 40)],
+      rounds: 1,
+      cooldown: [step('Stretch', 20)],
+      preCooldownRestSeconds: 30,
+    });
+    const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
+    let snap = engine.start(T0);
+    expect(snap.currentSegment?.name).toBe('Squats');
+
+    snap = engine.tick(T0 + 40_000);
+    expect(snap.state).toBe('rest');
+    expect(snap.remainingMs).toBe(30_000);
+
+    snap = engine.tick(T0 + 40_000 + 30_000);
+    expect(snap.state).toBe('exercise');
+    expect(snap.currentSegment?.name).toBe('Stretch');
+
+    snap = engine.tick(T0 + 40_000 + 30_000 + 20_000);
+    expect(snap.state).toBe('complete');
   });
 });
