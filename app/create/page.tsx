@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { WorkoutEditor } from '@/components/editor/WorkoutEditor';
 import { WorkoutActionBar } from '@/components/editor/WorkoutActionBar';
 import { ScheduleSheet } from '@/components/calendar/ScheduleSheet';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { blankWorkout } from '@/lib/workout/blank';
 import { WorkoutSchema, type Workout } from '@/lib/workout/schema';
 import { saveDraft } from '@/lib/workout/draftStore';
@@ -21,9 +22,26 @@ export default function CreateWorkoutPage() {
   const [scheduling, setScheduling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingBack, setConfirmingBack] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const validation = WorkoutSchema.safeParse(workout);
   const canStart = validation.success && workout.title.trim() !== '';
+
+  const handleBack = () => {
+    if (!isDirty) {
+      router.push('/');
+      return;
+    }
+    setConfirmingBack(true);
+  };
+
+  const handleSaveDraftAndLeave = () => {
+    const draftId = uuid();
+    saveDraft(draftId, { workout, source: 'manual' });
+    setConfirmingBack(false);
+    router.push(`/review/${draftId}`);
+  };
 
   const handleStart = () => {
     const runId = uuid();
@@ -48,9 +66,24 @@ export default function CreateWorkoutPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-bold">Create Workout</h1>
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="focus-ring -ml-1 rounded-lg px-1 py-1 text-sm font-semibold text-text-muted hover:text-text"
+        >
+          ‹ Back
+        </button>
+        <h1 className="text-2xl font-bold">Create Workout</h1>
+      </div>
       {error && <p className="mb-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
-      <WorkoutEditor value={workout} onChange={setWorkout} />
+      <WorkoutEditor
+        value={workout}
+        onChange={(next) => {
+          setWorkout(next);
+          setIsDirty(true);
+        }}
+      />
       <div className="h-6" />
       <WorkoutActionBar
         canStart={canStart}
@@ -58,6 +91,19 @@ export default function CreateWorkoutPage() {
         onStart={handleStart}
         onSaveAsTemplate={handleSaveAsTemplate}
         onSchedule={() => setScheduling(true)}
+        onBack={handleBack}
+      />
+      <ConfirmDialog
+        open={confirmingBack}
+        title="Leave without saving?"
+        description="You have unsaved changes to this workout."
+        confirmLabel="Discard"
+        cancelLabel="Continue editing"
+        danger
+        initialFocus="cancel"
+        onCancel={() => setConfirmingBack(false)}
+        onConfirm={() => router.push('/')}
+        extraAction={{ label: 'Save draft', onClick: handleSaveDraftAndLeave }}
       />
       <ScheduleSheet
         open={scheduling}

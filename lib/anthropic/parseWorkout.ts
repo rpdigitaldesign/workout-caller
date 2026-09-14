@@ -10,10 +10,10 @@ function attachIds(ai: AiWorkout): Workout {
   const withIds = (steps: AiWorkout['steps'] | undefined): WorkoutStep[] =>
     (steps ?? []).map((s) => ({
       id: uuid(),
-      type: s.type,
       name: s.name,
       durationSeconds: s.durationSeconds,
       reps: s.reps ?? null,
+      restAfterSeconds: s.restAfterSeconds ?? null,
       notes: s.notes ?? null,
       announce: null,
     }));
@@ -22,8 +22,6 @@ function attachIds(ai: AiWorkout): Workout {
     title: ai.title,
     rounds: ai.rounds,
     roundRestSeconds: ai.roundRestSeconds ?? null,
-    postWarmupRestSeconds: ai.postWarmupRestSeconds ?? null,
-    preCooldownRestSeconds: ai.preCooldownRestSeconds ?? null,
     warmup: withIds(ai.warmup),
     steps: withIds(ai.steps),
     cooldown: withIds(ai.cooldown),

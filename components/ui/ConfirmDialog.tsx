@@ -12,6 +12,15 @@ export interface ConfirmDialogProps {
   danger?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Optional third action rendered between Cancel and Confirm (e.g. "Save draft" on an unsaved-changes prompt). Additive — omitting it renders exactly as before. */
+  extraAction?: { label: string; onClick: () => void };
+  /** Which button receives focus when the dialog opens. Defaults to 'confirm' (the
+   * existing behavior for e.g. "Delete this template?", where the user already
+   * expressed intent by clicking the triggering action). Pass 'cancel' for dialogs
+   * where opening the dialog itself doesn't imply the user wants the destructive
+   * option — e.g. an unsaved-changes prompt triggered by a neutral "Back" tap —
+   * so a reflexive Enter/Space doesn't discard something the user didn't ask to discard. */
+  initialFocus?: 'confirm' | 'cancel';
 }
 
 /**
@@ -28,12 +37,16 @@ export function ConfirmDialog({
   danger = false,
   onConfirm,
   onCancel,
+  extraAction,
+  initialFocus = 'confirm',
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (open) confirmRef.current?.focus();
-  }, [open]);
+    if (!open) return;
+    (initialFocus === 'cancel' ? cancelRef : confirmRef).current?.focus();
+  }, [open, initialFocus]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,9 +72,14 @@ export function ConfirmDialog({
         </h2>
         {description && <p className="mt-2 text-sm text-text-muted">{description}</p>}
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="ghost" onClick={onCancel}>
+          <Button ref={cancelRef} variant="ghost" onClick={onCancel}>
             {cancelLabel}
           </Button>
+          {extraAction && (
+            <Button variant="secondary" onClick={extraAction.onClick}>
+              {extraAction.label}
+            </Button>
+          )}
           <Button ref={confirmRef} variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>
             {confirmLabel}
           </Button>

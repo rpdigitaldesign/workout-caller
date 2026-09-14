@@ -1,12 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Workout, WorkoutTemplate } from '@/lib/workout/schema';
+import { WorkoutSchema, type Workout, type WorkoutTemplate } from '@/lib/workout/schema';
+import { migrateWorkout } from '@/lib/workout/migrate';
 import type { WorkoutTemplateRow } from './rows';
 
 function toDomain(row: WorkoutTemplateRow): WorkoutTemplate {
   return {
     id: row.id,
     userId: row.user_id,
-    workout: row.workout,
+    workout: WorkoutSchema.parse(migrateWorkout(row.workout)),
     source: row.source,
     parentTemplateId: row.parent_template_id,
     createdAt: row.created_at,

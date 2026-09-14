@@ -10,6 +10,10 @@ const ACTIVE_WORKOUT_KEY = 'workout-caller:active-workout';
  * run; cleared on completion or explicit discard.
  */
 export interface ActiveWorkoutRecovery {
+  /** The /workout/[runId]/run this recovery record belongs to — lets a plain
+   * browser refresh on that same URL find and use this record directly,
+   * without requiring the explicit `?recover=1` Home-banner entry point. */
+  runId: string;
   workout: Workout;
   templateId: string | null;
   scheduledWorkoutId: string | null;

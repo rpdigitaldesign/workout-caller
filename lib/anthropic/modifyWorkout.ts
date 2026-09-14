@@ -21,10 +21,10 @@ function attachIds(ai: AiWorkout, original: Workout): Workout {
       const keepId = originalAtSamePosition && originalAtSamePosition.name === s.name ? originalAtSamePosition.id : uuid();
       return {
         id: keepId,
-        type: s.type,
         name: s.name,
         durationSeconds: s.durationSeconds,
         reps: s.reps ?? null,
+        restAfterSeconds: s.restAfterSeconds ?? null,
         notes: s.notes ?? null,
         announce: null,
       };
@@ -34,8 +34,6 @@ function attachIds(ai: AiWorkout, original: Workout): Workout {
     title: ai.title,
     rounds: ai.rounds,
     roundRestSeconds: ai.roundRestSeconds ?? null,
-    postWarmupRestSeconds: ai.postWarmupRestSeconds ?? null,
-    preCooldownRestSeconds: ai.preCooldownRestSeconds ?? null,
     warmup: withIds(ai.warmup, original.warmup),
     steps: withIds(ai.steps, original.steps),
     cooldown: withIds(ai.cooldown, original.cooldown),

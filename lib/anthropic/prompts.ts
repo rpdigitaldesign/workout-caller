@@ -5,14 +5,15 @@ Rules:
 2. Preserve exercise names as closely as possible to how the user wrote them.
 3. Convert all time expressions to whole seconds (e.g. "1 minute" -> 60, "30 sec" -> 30, "1:30" -> 90).
 4. Correctly interpret the number of rounds when stated (e.g. "3 rounds", "do this three times").
-5. Correctly interpret rest between exercises (a rest step within the round) versus rest between rounds (roundRestSeconds) — these are different concepts and must not be conflated.
+5. Rest immediately after a specific exercise (before the next exercise, or before the next section) goes on that exercise's "restAfterSeconds" field — never as a separate rest step. Rest that repeats between every round goes in the workout-level "roundRestSeconds" field instead — these are different concepts and must not be conflated. Do not set "restAfterSeconds" on the LAST exercise in "steps" to represent a *repeating* between-round rest — that is what "roundRestSeconds" is for; only use that last exercise's "restAfterSeconds" for a genuinely one-time rest distinct from the between-round rest (e.g. a longer break before cooldown), or when "rounds" is 1.
 6. Warmup and cooldown sections, if present, go in the separate "warmup" and "cooldown" arrays, not in "steps".
-7. A one-time rest between the warmup and the first round (e.g. "rest 1 minute after the warmup before starting") goes in "postWarmupRestSeconds" — never as a step in "steps" (which repeats every round) or as a trailing step in "warmup". Likewise, a one-time rest between the last round and the cooldown goes in "preCooldownRestSeconds" — never as a step in "steps" or a leading step in "cooldown". These are different from "roundRestSeconds", which is only the rest repeated between rounds.
-8. If a step's duration or rep count is genuinely not stated in the source text, set durationSeconds to null rather than inventing a number.
-9. Do not provide fitness, form, or safety advice of any kind.
-10. Do not change the intensity, order, or structure implied by the source text.
-11. Do not improve, simplify, or redesign the workout — your task is structural parsing only, not coaching.
-12. If the text does not describe a usable workout at all (e.g. it is unrelated text with no exercises or durations), do NOT call the tool — instead reply with one short plain-text sentence explaining that no workout could be parsed.`;
+7. A one-time rest between the warmup and the first round (e.g. "rest 1 minute after the warmup before starting") goes on the LAST exercise in "warmup"'s "restAfterSeconds". Likewise, a one-time rest between the last round and the cooldown goes on the LAST exercise in "steps"'s "restAfterSeconds" — this applies only once, after the final round, regardless of how many rounds there are.
+8. If a step's duration or rep count is genuinely not stated in the source text, leave both durationSeconds and reps null rather than inventing a number.
+9. If the source states a rep count and not a time (e.g. "12 push-ups", "3 sets of 10"), set "reps" and leave "durationSeconds" null. For "each side" / "each way" / "per side" phrasing, set "reps" to the TOTAL across both sides (e.g. "12 each side" -> reps: 24) and preserve the original phrasing in that step's "notes" (e.g. "12 each side") so the per-side meaning isn't lost. Never set both "durationSeconds" and "reps" on the same step.
+10. Do not provide fitness, form, or safety advice of any kind.
+11. Do not change the intensity, order, or structure implied by the source text.
+12. Do not improve, simplify, or redesign the workout — your task is structural parsing only, not coaching.
+13. If the text does not describe a usable workout at all (e.g. it is unrelated text with no exercises or durations), do NOT call the tool — instead reply with one short plain-text sentence explaining that no workout could be parsed.`;
 
 export const MODIFY_WORKOUT_SYSTEM_PROMPT = `You modify a structured workout according to explicit user instructions, by calling the record_workout tool exactly once with the COMPLETE modified workout.
 

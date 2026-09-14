@@ -85,6 +85,9 @@ export function buildSegmentAnnouncement(
     return 'Rest.';
   }
 
+  if (segment.reps !== null) {
+    return `${segment.name}. ${segment.reps} reps.`;
+  }
   if (settings.announceDuration && segment.durationSeconds !== null) {
     return `${segment.name}. ${segment.durationSeconds} seconds.`;
   }

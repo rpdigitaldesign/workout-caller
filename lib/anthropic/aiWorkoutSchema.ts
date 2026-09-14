@@ -14,11 +14,13 @@ import { LIMITS } from '@/lib/workout/schema';
  */
 
 const AiWorkoutStepSchema = z.object({
-  type: z.enum(['exercise', 'rest']),
   name: z.string().trim().min(1).max(LIMITS.STEP_NAME_MAX),
   // null when the source text truly doesn't specify a duration — never guessed.
   durationSeconds: z.number().int().positive().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
   reps: z.number().int().positive().max(LIMITS.MAX_REPS).nullable().optional(),
+  // Rest between this exercise and the next one — see prompts.ts rules 5/7
+  // for how this also carries the one-time post-warmup/pre-cooldown rests.
+  restAfterSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().optional(),
   notes: z.string().trim().max(LIMITS.NOTES_MAX).nullable().optional(),
 });
 
@@ -26,8 +28,6 @@ export const AiWorkoutSchema = z.object({
   title: z.string().trim().min(1).max(LIMITS.TITLE_MAX),
   rounds: z.number().int().positive().max(LIMITS.MAX_ROUNDS),
   roundRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().optional(),
-  postWarmupRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().optional(),
-  preCooldownRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().optional(),
   warmup: z.array(AiWorkoutStepSchema).max(LIMITS.MAX_STEPS).optional(),
   steps: z.array(AiWorkoutStepSchema).min(1).max(LIMITS.MAX_STEPS),
   cooldown: z.array(AiWorkoutStepSchema).max(LIMITS.MAX_STEPS).optional(),
@@ -43,8 +43,6 @@ export const AI_WORKOUT_JSON_SCHEMA = {
     title: { type: 'string' },
     rounds: { type: 'integer', minimum: 1 },
     roundRestSeconds: { type: ['integer', 'null'] },
-    postWarmupRestSeconds: { type: ['integer', 'null'] },
-    preCooldownRestSeconds: { type: ['integer', 'null'] },
     warmup: { type: 'array', items: { $ref: '#/$defs/step' } },
     steps: { type: 'array', items: { $ref: '#/$defs/step' }, minItems: 1 },
     cooldown: { type: 'array', items: { $ref: '#/$defs/step' } },
@@ -56,13 +54,13 @@ export const AI_WORKOUT_JSON_SCHEMA = {
     step: {
       type: 'object',
       properties: {
-        type: { type: 'string', enum: ['exercise', 'rest'] },
         name: { type: 'string' },
         durationSeconds: { type: ['integer', 'null'] },
         reps: { type: ['integer', 'null'] },
+        restAfterSeconds: { type: ['integer', 'null'] },
         notes: { type: ['string', 'null'] },
       },
-      required: ['type', 'name', 'durationSeconds'],
+      required: ['name', 'durationSeconds'],
     },
   },
 } as const;

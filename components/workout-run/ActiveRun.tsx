@@ -24,6 +24,7 @@ import { saveDraft } from '@/lib/workout/draftStore';
 import type { Workout } from '@/lib/workout/schema';
 
 export interface ActiveRunProps {
+  runId: string;
   workout: Workout;
   templateId: string | null;
   scheduledWorkoutId: string | null;
@@ -32,7 +33,7 @@ export interface ActiveRunProps {
   userId: string | null;
 }
 
-export function ActiveRun({ workout, templateId, scheduledWorkoutId, isRecovery, recoveryData, userId }: ActiveRunProps) {
+export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRecovery, recoveryData, userId }: ActiveRunProps) {
   const router = useRouter();
   const { settings, tonesEnabled, getReadySeconds } = useSpeechSettings();
   const timer = useWorkoutTimer(workout, getReadySeconds);
@@ -65,6 +66,7 @@ export function ActiveRun({ workout, templateId, scheduledWorkoutId, isRecovery,
   useEffect(() => {
     if (!isRunActive) return;
     void saveActiveWorkout({
+      runId,
       workout,
       templateId,
       scheduledWorkoutId,

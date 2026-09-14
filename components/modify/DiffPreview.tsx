@@ -16,7 +16,12 @@ function diffStepLists(before: WorkoutStep[], after: WorkoutStep[]): StepDiffRow
     const prior = beforeById.get(step.id);
     if (!prior) {
       rows.push({ kind: 'added', before: null, after: step });
-    } else if (prior.name !== step.name || prior.durationSeconds !== step.durationSeconds || prior.type !== step.type) {
+    } else if (
+      prior.name !== step.name ||
+      prior.durationSeconds !== step.durationSeconds ||
+      prior.reps !== step.reps ||
+      prior.restAfterSeconds !== step.restAfterSeconds
+    ) {
       rows.push({ kind: 'changed', before: prior, after: step });
     } else {
       rows.push({ kind: 'unchanged', before: prior, after: step });
@@ -31,24 +36,18 @@ function diffStepLists(before: WorkoutStep[], after: WorkoutStep[]): StepDiffRow
 }
 
 function describeStep(step: WorkoutStep): string {
-  return step.durationSeconds !== null ? `${step.name} — ${step.durationSeconds} sec` : step.name;
+  if (step.reps !== null) return `${step.name} — ${step.reps} reps`;
+  if (step.durationSeconds !== null) return `${step.name} — ${step.durationSeconds} sec`;
+  return step.name;
 }
 
 export function DiffPreview({ original, modified }: { original: Workout; modified: Workout }) {
   const rows = diffStepLists(original.steps, modified.steps).filter((r) => r.kind !== 'unchanged');
   const roundsChanged = original.rounds !== modified.rounds;
   const roundRestChanged = original.roundRestSeconds !== modified.roundRestSeconds;
-  const postWarmupRestChanged = original.postWarmupRestSeconds !== modified.postWarmupRestSeconds;
-  const preCooldownRestChanged = original.preCooldownRestSeconds !== modified.preCooldownRestSeconds;
   const titleChanged = original.title !== modified.title;
 
-  const nothingChanged =
-    rows.length === 0 &&
-    !roundsChanged &&
-    !roundRestChanged &&
-    !postWarmupRestChanged &&
-    !preCooldownRestChanged &&
-    !titleChanged;
+  const nothingChanged = rows.length === 0 && !roundsChanged && !roundRestChanged && !titleChanged;
 
   return (
     <Card>
@@ -73,20 +72,6 @@ export function DiffPreview({ original, modified }: { original: Workout; modifie
             Rest between rounds:{' '}
             <span className="text-text-muted line-through">{original.roundRestSeconds ?? 'none'}</span> →{' '}
             <span className="font-semibold">{modified.roundRestSeconds ?? 'none'}</span>
-          </div>
-        )}
-        {postWarmupRestChanged && (
-          <div>
-            Rest after warmup (one-time):{' '}
-            <span className="text-text-muted line-through">{original.postWarmupRestSeconds ?? 'none'}</span> →{' '}
-            <span className="font-semibold">{modified.postWarmupRestSeconds ?? 'none'}</span>
-          </div>
-        )}
-        {preCooldownRestChanged && (
-          <div>
-            Rest before cooldown (one-time):{' '}
-            <span className="text-text-muted line-through">{original.preCooldownRestSeconds ?? 'none'}</span> →{' '}
-            <span className="font-semibold">{modified.preCooldownRestSeconds ?? 'none'}</span>
           </div>
         )}
         {rows.map((row, i) => (

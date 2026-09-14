@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ScheduledWorkout, Workout } from '@/lib/workout/schema';
+import { WorkoutSchema, type ScheduledWorkout, type Workout } from '@/lib/workout/schema';
+import { migrateWorkout } from '@/lib/workout/migrate';
 import type { ScheduledWorkoutRow } from './rows';
 
 function toDomain(row: ScheduledWorkoutRow): ScheduledWorkout {
@@ -7,7 +8,7 @@ function toDomain(row: ScheduledWorkoutRow): ScheduledWorkout {
     id: row.id,
     userId: row.user_id,
     templateId: row.template_id,
-    workoutSnapshot: row.workout_snapshot,
+    workoutSnapshot: WorkoutSchema.parse(migrateWorkout(row.workout_snapshot)),
     title: row.title,
     scheduledDate: row.scheduled_date,
     scheduledTime: row.scheduled_time,

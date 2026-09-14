@@ -42,9 +42,16 @@ export function ExerciseScreen({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-hidden short:gap-2">
-        <p aria-live="off" className="text-[min(28vw,22dvh,200px)] font-black leading-none tabular-nums">
-          {seconds !== null ? formatDuration(seconds) : '∞'}
-        </p>
+        {segment.reps !== null ? (
+          <p aria-live="off" className="flex items-baseline gap-2 leading-none">
+            <span className="text-[min(28vw,22dvh,200px)] font-black tabular-nums">{segment.reps}</span>
+            <span className="text-2xl font-bold uppercase tracking-wide text-text-muted short:text-lg">reps</span>
+          </p>
+        ) : (
+          <p aria-live="off" className="text-[min(28vw,22dvh,200px)] font-black leading-none tabular-nums">
+            {seconds !== null ? formatDuration(seconds) : '∞'}
+          </p>
+        )}
         {snapshot.nextSegment && (
           <p className="line-clamp-1 text-xl text-text-muted short:text-base">
             Next: <span className="font-semibold text-text">{snapshot.nextSegment.name}</span>

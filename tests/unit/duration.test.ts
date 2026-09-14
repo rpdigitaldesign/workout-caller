@@ -3,8 +3,8 @@ import { v4 as uuid } from 'uuid';
 import { estimateWorkoutDuration, formatDuration } from '@/lib/workout/duration';
 import type { Workout, WorkoutStep } from '@/lib/workout/schema';
 
-function step(name: string, durationSeconds: number | null, type: WorkoutStep['type'] = 'exercise'): WorkoutStep {
-  return { id: uuid(), type, name, durationSeconds, reps: null, notes: null, announce: null };
+function step(name: string, durationSeconds: number | null, restAfterSeconds: number | null = null): WorkoutStep {
+  return { id: uuid(), name, durationSeconds, reps: null, restAfterSeconds, notes: null, announce: null };
 }
 
 function makeWorkout(overrides: Partial<Workout> = {}): Workout {
@@ -12,10 +12,8 @@ function makeWorkout(overrides: Partial<Workout> = {}): Workout {
     title: 'Test',
     rounds: 1,
     roundRestSeconds: null,
-    postWarmupRestSeconds: null,
-    preCooldownRestSeconds: null,
     warmup: [],
-    steps: [step('A', 40), step('rest', 20, 'rest'), step('B', 30)],
+    steps: [step('A', 40, 20), step('B', 30)],
     cooldown: [],
     notes: null,
     tags: [],
@@ -32,6 +30,8 @@ describe('estimateWorkoutDuration', () => {
 
   it('multiplies steps by rounds and inserts round rest between rounds only (not after the last)', () => {
     const result = estimateWorkoutDuration(makeWorkout({ rounds: 3, roundRestSeconds: 60 }));
+    // Each round: A(40) + rest(20, ordinary inter-exercise) + B(30) = 90, x3 rounds.
+    // roundRest fires between rounds only (x2), never after round 3 (B's own restAfterSeconds is null, no pre-cooldown rest either).
     expect(result.totalSeconds).toBe((40 + 20 + 30) * 3 + 60 * 2);
   });
 
@@ -59,21 +59,54 @@ describe('estimateWorkoutDuration', () => {
     expect(result.totalSeconds).toBe(0);
   });
 
-  it('includes postWarmupRestSeconds and preCooldownRestSeconds exactly once, regardless of rounds', () => {
-    const result = estimateWorkoutDuration(
-      makeWorkout({ rounds: 4, postWarmupRestSeconds: 60, preCooldownRestSeconds: 45 }),
-    );
-    expect(result.totalSeconds).toBe((40 + 20 + 30) * 4 + 60 + 45);
+  it('estimates a reps-based step at ~3 seconds per rep, flagged as an estimate rather than an exact duration', () => {
+    const result = estimateWorkoutDuration(makeWorkout({ steps: [{ ...step('Glute Bridge', null), reps: 15 }] }));
+    expect(result.hasManualSteps).toBe(true);
+    expect(result.totalSeconds).toBe(45); // 15 reps * 3s/rep
   });
 
-  it('treats null/0 postWarmupRestSeconds and preCooldownRestSeconds as contributing nothing', () => {
-    const withNull = estimateWorkoutDuration(
-      makeWorkout({ postWarmupRestSeconds: null, preCooldownRestSeconds: null }),
+  it('estimates "12 each side" (stored as 24 total reps) at ~72 seconds', () => {
+    const result = estimateWorkoutDuration(makeWorkout({ steps: [{ ...step('Lunges', null), reps: 24 }] }));
+    expect(result.totalSeconds).toBe(72);
+  });
+
+  it('a step with neither reps nor duration set (genuinely unspecified) still contributes 0', () => {
+    const result = estimateWorkoutDuration(makeWorkout({ steps: [step('Unknown', null)] }));
+    expect(result.hasManualSteps).toBe(true);
+    expect(result.totalSeconds).toBe(0);
+  });
+
+  it("includes the last warmup/main step's restAfterSeconds exactly once as the one-time transition rest, regardless of rounds", () => {
+    const result = estimateWorkoutDuration(
+      makeWorkout({
+        warmup: [step('Jog', 60, 15)],
+        steps: [step('A', 40, 20), step('B', 30, 45)],
+        rounds: 4,
+        cooldown: [step('Stretch', 20)],
+      }),
     );
-    const withZero = estimateWorkoutDuration(makeWorkout({ postWarmupRestSeconds: 0, preCooldownRestSeconds: 0 }));
-    const withNeither = estimateWorkoutDuration(makeWorkout());
-    expect(withNull.totalSeconds).toBe(withNeither.totalSeconds);
-    expect(withZero.totalSeconds).toBe(withNeither.totalSeconds);
+    // warmup(60) + rest(15, one-time) + 4 rounds * (A 40 + rest 20 + B 30) + rest(45, one-time, only after round 4) + cooldown(20)
+    expect(result.totalSeconds).toBe(60 + 15 + (40 + 20 + 30) * 4 + 45 + 20);
+  });
+
+  it('never double-counts a repeating round rest and a one-time pre-cooldown rest on the same final step', () => {
+    const withBoth = estimateWorkoutDuration(
+      makeWorkout({
+        steps: [step('A', 40, 30)],
+        rounds: 3,
+        roundRestSeconds: 15,
+        cooldown: [step('Stretch', 20)],
+      }),
+    );
+    // 3 rounds of A(40), roundRest(15) fires twice (not after round 3), the one-time 30s rest fires exactly once (after round 3).
+    expect(withBoth.totalSeconds).toBe(40 * 3 + 15 * 2 + 30 + 20);
+  });
+
+  it('suppresses trailing rest on the true final step of the workout even when restAfterSeconds is explicitly set', () => {
+    const noCooldown = estimateWorkoutDuration(
+      makeWorkout({ steps: [step('A', 40, 30)], rounds: 1, cooldown: [] }),
+    );
+    expect(noCooldown.totalSeconds).toBe(40); // the 30s rest never counts — nothing follows it
   });
 });
 

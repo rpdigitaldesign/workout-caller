@@ -7,6 +7,7 @@ import { WorkoutEditor } from '@/components/editor/WorkoutEditor';
 import { WorkoutActionBar } from '@/components/editor/WorkoutActionBar';
 import { ScheduleSheet } from '@/components/calendar/ScheduleSheet';
 import { DiffPreview } from '@/components/modify/DiffPreview';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { WorkoutSchema, type Workout } from '@/lib/workout/schema';
 import { loadDraft, saveDraft, type WorkoutDraft } from '@/lib/workout/draftStore';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
@@ -24,6 +25,8 @@ export default function ReviewWorkoutPage() {
   const [scheduling, setScheduling] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingBack, setConfirmingBack] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     // sessionStorage is only available client-side; deferring this read to an
@@ -49,6 +52,20 @@ export default function ReviewWorkoutPage() {
 
   const validation = WorkoutSchema.safeParse(workout);
   const canStart = validation.success && workout.title.trim() !== '';
+
+  const handleBack = () => {
+    if (!isDirty) {
+      router.push('/');
+      return;
+    }
+    setConfirmingBack(true);
+  };
+
+  const handleSaveDraftAndLeave = () => {
+    saveDraft(params.draftId, { ...draft, workout });
+    setConfirmingBack(false);
+    router.push('/');
+  };
 
   const handleStart = () => {
     const runId = uuid();
@@ -82,7 +99,16 @@ export default function ReviewWorkoutPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-bold">Review Workout</h1>
+      <div className="mb-2 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="focus-ring -ml-1 rounded-lg px-1 py-1 text-sm font-semibold text-text-muted hover:text-text"
+        >
+          ‹ Back
+        </button>
+        <h1 className="text-2xl font-bold">Review Workout</h1>
+      </div>
       {draft.parentTemplateId && <p className="mb-4 text-sm text-text-muted">Based on an existing workout</p>}
       {error && <p className="mb-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
 
@@ -92,7 +118,13 @@ export default function ReviewWorkoutPage() {
         </div>
       )}
 
-      <WorkoutEditor value={workout} onChange={setWorkout} />
+      <WorkoutEditor
+        value={workout}
+        onChange={(next) => {
+          setWorkout(next);
+          setIsDirty(true);
+        }}
+      />
       <div className="h-6" />
       <WorkoutActionBar
         canStart={canStart}
@@ -100,7 +132,19 @@ export default function ReviewWorkoutPage() {
         onStart={handleStart}
         onSaveAsTemplate={handleSaveAsTemplate}
         onSchedule={() => setScheduling(true)}
-        onBack={() => router.push('/')}
+        onBack={handleBack}
+      />
+      <ConfirmDialog
+        open={confirmingBack}
+        title="Leave without saving?"
+        description="You have unsaved changes to this workout."
+        confirmLabel="Discard"
+        cancelLabel="Continue editing"
+        danger
+        initialFocus="cancel"
+        onCancel={() => setConfirmingBack(false)}
+        onConfirm={() => router.push('/')}
+        extraAction={{ label: 'Save draft', onClick: handleSaveDraftAndLeave }}
       />
       <ScheduleSheet
         open={scheduling}

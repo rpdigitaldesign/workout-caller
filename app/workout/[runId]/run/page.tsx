@@ -27,14 +27,24 @@ export default function RunWorkoutPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      if (isRecovery) {
-        const recovery = await loadActiveWorkout();
-        if (cancelled) return;
+      // Always check for a recovery record — not just when `?recover=1` is
+      // present — so a plain browser refresh on THIS SAME run URL (no query
+      // param at all) can still find and restore its own in-progress state,
+      // rather than silently falling through to the pre-start draft and
+      // discarding progress. `?recover=1` (the Home-banner entry point,
+      // which mints a fresh runId unrelated to the original run) still
+      // forces recovery unconditionally, regardless of any runId match.
+      const recovery = await loadActiveWorkout();
+      if (cancelled) return;
+      const matchesThisRun = recovery !== null && recovery.runId === params.runId;
+
+      if (isRecovery || matchesThisRun) {
         setSource(recovery ? { workout: recovery.workout, templateId: recovery.templateId, scheduledWorkoutId: recovery.scheduledWorkoutId, recoveryData: recovery } : null);
-      } else {
-        const draft = loadDraft(params.runId);
-        setSource(draft ? { workout: draft.workout, templateId: draft.templateId ?? null, scheduledWorkoutId: draft.scheduledWorkoutId ?? null } : null);
+        return;
       }
+
+      const draft = loadDraft(params.runId);
+      setSource(draft ? { workout: draft.workout, templateId: draft.templateId ?? null, scheduledWorkoutId: draft.scheduledWorkoutId ?? null } : null);
     })();
     return () => {
       cancelled = true;
@@ -58,10 +68,11 @@ export default function RunWorkoutPage() {
 
   return (
     <ActiveRun
+      runId={params.runId}
       workout={source.workout}
       templateId={source.templateId}
       scheduledWorkoutId={source.scheduledWorkoutId}
-      isRecovery={isRecovery}
+      isRecovery={source.recoveryData != null}
       recoveryData={source.recoveryData}
       userId={user?.id ?? null}
     />

@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { StepRow } from './StepRow';
+import { StepRow, type StepSection } from './StepRow';
 import { Button } from '@/components/ui/Button';
 import { LIMITS, type Workout, type WorkoutStep } from '@/lib/workout/schema';
 import { estimateWorkoutDuration, formatDuration } from '@/lib/workout/duration';
@@ -22,13 +22,22 @@ export interface WorkoutEditorProps {
   onChange: (next: Workout) => void;
 }
 
-function newStep(type: WorkoutStep['type'] = 'exercise'): WorkoutStep {
+/** Default rest-after values are contextual to the section and apply ONLY
+ * at step-creation time — the stored value afterward is a plain nullable
+ * number, with 0 preserved exactly as an explicit "no rest" choice. */
+const DEFAULT_REST_SECONDS: Record<StepSection, number> = {
+  warmup: 10,
+  main: 30,
+  cooldown: 10,
+};
+
+function newStep(section: StepSection): WorkoutStep {
   return {
     id: uuid(),
-    type,
-    name: type === 'rest' ? 'Rest' : '',
-    durationSeconds: type === 'rest' ? 20 : 30,
+    name: '',
+    durationSeconds: 30,
     reps: null,
+    restAfterSeconds: DEFAULT_REST_SECONDS[section],
     notes: null,
     announce: null,
   };
@@ -77,6 +86,7 @@ function RestSecondsField({
 
 function StepList({
   listId,
+  section,
   label,
   steps,
   onUpdate,
@@ -90,6 +100,7 @@ function StepList({
    * between the server-rendered HTML and the client's hydration pass,
    * producing a real (if harmless) hydration-mismatch warning. */
   listId: string;
+  section: StepSection;
   label: string;
   steps: WorkoutStep[];
   onUpdate: (next: WorkoutStep[]) => void;
@@ -141,7 +152,7 @@ function StepList({
           size="md"
           variant="secondary"
           disabled={steps.length >= LIMITS.MAX_STEPS}
-          onClick={() => onUpdate([...steps, newStep()])}
+          onClick={() => onUpdate([...steps, newStep(section)])}
         >
           + Add
         </Button>
@@ -160,8 +171,12 @@ function StepList({
               <StepRow
                 key={step.id}
                 step={step}
+                section={section}
                 onChange={(next) => onUpdate(steps.map((s, i) => (i === index ? next : s)))}
                 onDelete={() => onUpdate(steps.filter((_, i) => i !== index))}
+                onDuplicate={() =>
+                  onUpdate([...steps.slice(0, index + 1), { ...step, id: uuid() }, ...steps.slice(index + 1)])
+                }
               />
             ))}
           </div>
@@ -223,36 +238,25 @@ export function WorkoutEditor({ value, onChange }: WorkoutEditorProps) {
 
       <StepList
         listId="warmup"
+        section="warmup"
         label="Warmup"
         steps={value.warmup}
         onUpdate={(next) => onChange({ ...value, warmup: next })}
         emptyHint="No warmup steps."
       />
 
-      <RestSecondsField
-        label="Rest after warmup (sec)"
-        hint="One-time — happens once, right before round 1."
-        value={value.postWarmupRestSeconds}
-        onChange={(postWarmupRestSeconds) => onChange({ ...value, postWarmupRestSeconds })}
-      />
-
       <StepList
         listId="steps"
+        section="main"
         label="Steps (repeat each round)"
         steps={value.steps}
         onUpdate={(next) => onChange({ ...value, steps: next })}
         emptyHint="Add at least one step."
       />
 
-      <RestSecondsField
-        label="Rest before cooldown (sec)"
-        hint="One-time — happens once, right after the last round."
-        value={value.preCooldownRestSeconds}
-        onChange={(preCooldownRestSeconds) => onChange({ ...value, preCooldownRestSeconds })}
-      />
-
       <StepList
         listId="cooldown"
+        section="cooldown"
         label="Cooldown"
         steps={value.cooldown}
         onUpdate={(next) => onChange({ ...value, cooldown: next })}

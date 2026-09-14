@@ -20,13 +20,10 @@ const original: Workout = {
   title: 'Leg Day',
   rounds: 3,
   roundRestSeconds: 60,
-  postWarmupRestSeconds: 45,
-  preCooldownRestSeconds: 30,
   warmup: [],
   steps: [
-    { id: uuid(), type: 'exercise', name: 'Goblet squats', durationSeconds: 40, reps: null, notes: null, announce: null },
-    { id: uuid(), type: 'rest', name: 'Rest', durationSeconds: 20, reps: null, notes: null, announce: null },
-    { id: uuid(), type: 'exercise', name: 'Push-ups', durationSeconds: 30, reps: null, notes: null, announce: null },
+    { id: uuid(), name: 'Goblet squats', durationSeconds: 40, reps: null, restAfterSeconds: 20, notes: null, announce: null },
+    { id: uuid(), name: 'Push-ups', durationSeconds: 30, reps: null, restAfterSeconds: 30, notes: null, announce: null },
   ],
   cooldown: [],
   notes: null,
@@ -41,9 +38,8 @@ describe('modifyWorkoutWithInstruction', () => {
         rounds: 3,
         roundRestSeconds: 60,
         steps: [
-          { type: 'exercise', name: 'Goblet squats', durationSeconds: 40 },
-          { type: 'rest', name: 'Rest', durationSeconds: 20 },
-          { type: 'exercise', name: 'Chest presses', durationSeconds: 30 },
+          { name: 'Goblet squats', durationSeconds: 40, restAfterSeconds: 20 },
+          { name: 'Chest presses', durationSeconds: 30, restAfterSeconds: 30 },
         ],
       }),
     );
@@ -61,12 +57,9 @@ describe('modifyWorkoutWithInstruction', () => {
         title: 'Leg Day',
         rounds: 3,
         roundRestSeconds: 60,
-        postWarmupRestSeconds: 45,
-        preCooldownRestSeconds: 30,
         steps: [
-          { type: 'exercise', name: 'Goblet squats', durationSeconds: 40 },
-          { type: 'rest', name: 'Rest', durationSeconds: 20 },
-          { type: 'exercise', name: 'Chest presses', durationSeconds: 30 },
+          { name: 'Goblet squats', durationSeconds: 40, restAfterSeconds: 20 },
+          { name: 'Chest presses', durationSeconds: 30, restAfterSeconds: 30 },
         ],
       }),
     );
@@ -76,16 +69,13 @@ describe('modifyWorkoutWithInstruction', () => {
       expect(result.workout.title).toBe(original.title);
       expect(result.workout.rounds).toBe(original.rounds);
       expect(result.workout.roundRestSeconds).toBe(original.roundRestSeconds);
-      expect(result.workout.postWarmupRestSeconds).toBe(original.postWarmupRestSeconds);
-      expect(result.workout.preCooldownRestSeconds).toBe(original.preCooldownRestSeconds);
-      // Unaffected steps keep their original id (best-effort positional match).
+      // Unaffected step keeps its original id (best-effort positional match).
       expect(result.workout.steps[0]!.id).toBe(original.steps[0]!.id);
-      expect(result.workout.steps[1]!.id).toBe(original.steps[1]!.id);
       expect(result.workout.steps[0]!.durationSeconds).toBe(40);
-      expect(result.workout.steps[1]!.durationSeconds).toBe(20);
+      expect(result.workout.steps[0]!.restAfterSeconds).toBe(20);
       // The targeted step changed name and got a fresh id.
-      expect(result.workout.steps[2]!.name).toBe('Chest presses');
-      expect(result.workout.steps[2]!.id).not.toBe(original.steps[2]!.id);
+      expect(result.workout.steps[1]!.name).toBe('Chest presses');
+      expect(result.workout.steps[1]!.id).not.toBe(original.steps[1]!.id);
     }
   });
 
@@ -104,7 +94,7 @@ describe('modifyWorkoutWithInstruction', () => {
 
   it('never writes to the database itself — it only returns a candidate workout', async () => {
     mockCreate.mockResolvedValueOnce(
-      toolUseResponse('record_workout', { title: 'Leg Day', rounds: 3, steps: [{ type: 'exercise', name: 'X', durationSeconds: 10 }] }),
+      toolUseResponse('record_workout', { title: 'Leg Day', rounds: 3, steps: [{ name: 'X', durationSeconds: 10 }] }),
     );
     const result = await modifyWorkoutWithInstruction(original, 'change something');
     // The module has no database import at all — a structural guarantee, verified by

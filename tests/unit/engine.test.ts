@@ -3,8 +3,8 @@ import { v4 as uuid } from 'uuid';
 import { WorkoutEngine, buildSegments } from '@/lib/workout/engine';
 import type { Workout, WorkoutStep } from '@/lib/workout/schema';
 
-function step(name: string, durationSeconds: number | null, type: WorkoutStep['type'] = 'exercise'): WorkoutStep {
-  return { id: uuid(), type, name, durationSeconds, reps: null, notes: null, announce: null };
+function step(name: string, durationSeconds: number | null, restAfterSeconds: number | null = null): WorkoutStep {
+  return { id: uuid(), name, durationSeconds, reps: null, restAfterSeconds, notes: null, announce: null };
 }
 
 function makeWorkout(overrides: Partial<Workout> = {}): Workout {
@@ -12,10 +12,8 @@ function makeWorkout(overrides: Partial<Workout> = {}): Workout {
     title: 'Test Workout',
     rounds: 1,
     roundRestSeconds: null,
-    postWarmupRestSeconds: null,
-    preCooldownRestSeconds: null,
     warmup: [],
-    steps: [step('Squats', 40), step('Rest', 20, 'rest'), step('Push-ups', 30)],
+    steps: [step('Squats', 40, 20), step('Push-ups', 30)],
     cooldown: [],
     notes: null,
     tags: [],
@@ -48,6 +46,7 @@ describe('buildSegments', () => {
     const workout = makeWorkout({ rounds: 3, roundRestSeconds: null });
     const segments = buildSegments(workout);
     expect(segments.every((s) => s.kind !== 'roundRest')).toBe(true);
+    // Squats + rest(20) + Push-ups, per round.
     expect(segments).toHaveLength(3 * 3);
   });
 
@@ -63,15 +62,22 @@ describe('buildSegments', () => {
     expect(segments[segments.length - 1]!.kind).not.toBe('roundRest');
   });
 
-  it('inserts a one-time rest segment after warmup and before round 1 when postWarmupRestSeconds is set', () => {
+  it("a step's restAfterSeconds produces a rest segment immediately after it", () => {
+    const workout = makeWorkout({ warmup: [step('Jog', 60, 15)] });
+    const segments = buildSegments(workout);
+    expect(segments[0]!.name).toBe('Jog');
+    expect(segments[1]!.kind).toBe('rest');
+    expect(segments[1]!.durationSeconds).toBe(15);
+  });
+
+  it("the last warmup step's restAfterSeconds acts as a one-time rest before round 1, never repeated across rounds", () => {
     const workout = makeWorkout({
-      warmup: [step('Walking warmup', 300)],
+      warmup: [step('Walking warmup', 300, 60)],
       steps: [step('Squats', 40)],
       rounds: 3,
-      postWarmupRestSeconds: 60,
     });
     const segments = buildSegments(workout);
-    // warmup(1) + postWarmupRest(1) + 3 rounds * 1 step = 5
+    // warmup(1) + rest(1) + 3 rounds * 1 step = 5
     expect(segments).toHaveLength(1 + 1 + 3);
     expect(segments[0]!.name).toBe('Walking warmup');
     expect(segments[1]!.kind).toBe('rest');
@@ -84,39 +90,124 @@ describe('buildSegments', () => {
     expect(segments[2]!.roundNumber).toBe(1);
   });
 
-  it('inserts a one-time rest segment after the last round and before cooldown when preCooldownRestSeconds is set', () => {
+  it('omits per-step rest when restAfterSeconds is null or explicit 0, distinct from roundRestSeconds', () => {
     const workout = makeWorkout({
-      steps: [step('Squats', 40)],
-      rounds: 2,
-      cooldown: [step('Stretch', 60)],
-      preCooldownRestSeconds: 30,
-    });
-    const segments = buildSegments(workout);
-    // 2 rounds * 1 step + preCooldownRest(1) + cooldown(1) = 4
-    expect(segments).toHaveLength(2 + 1 + 1);
-    expect(segments[2]!.kind).toBe('rest');
-    expect(segments[2]!.durationSeconds).toBe(30);
-    expect(segments[2]!.origin).toBe('cooldown');
-    expect(segments[2]!.roundNumber).toBeNull();
-    expect(segments[3]!.name).toBe('Stretch');
-    // It occurs exactly once, not once per round.
-    expect(segments.filter((s) => s.durationSeconds === 30).length).toBe(1);
-  });
-
-  it('omits the one-time rests when null or 0, distinct from roundRestSeconds', () => {
-    const workout = makeWorkout({
-      warmup: [step('Warmup', 60)],
-      steps: [step('Squats', 40)],
+      warmup: [step('Warmup', 60, 0)], // explicit zero -> no rest, even though it's the last warmup item
+      steps: [step('Squats', 40, null)], // no pre-cooldown rest on the final round's last step
       rounds: 2,
       cooldown: [step('Stretch', 60)],
       roundRestSeconds: 15,
-      postWarmupRestSeconds: 0,
-      preCooldownRestSeconds: null,
     });
     const segments = buildSegments(workout);
-    // warmup(1) + round1 step(1) + roundRest(1) + round2 step(1) + cooldown(1) = 5 — no post-warmup/pre-cooldown rest.
+    // warmup(1, no rest) + round1 Squats(1)+roundRest(1) + round2 Squats(1, no rest) + cooldown(1) = 5
     expect(segments).toHaveLength(5);
-    expect(segments.filter((s) => s.kind === 'rest' && s.stepId === null && s.origin !== 'main').length).toBe(0);
+    expect(segments.filter((s) => s.kind === 'rest').length).toBe(0);
+    expect(segments.filter((s) => s.kind === 'roundRest').length).toBe(1);
+  });
+
+  describe('pre-cooldown rest correctness (the last main step doubling as a one-time transition)', () => {
+    it('1 round: the last (only) main step\'s restAfterSeconds fires once, before cooldown', () => {
+      const workout = makeWorkout({
+        steps: [step('Squats', 40, 30)],
+        rounds: 1,
+        cooldown: [step('Stretch', 20)],
+      });
+      const segments = buildSegments(workout);
+      expect(segments).toHaveLength(3);
+      expect(segments[0]!.name).toBe('Squats');
+      expect(segments[1]!.kind).toBe('rest');
+      expect(segments[1]!.durationSeconds).toBe(30);
+      expect(segments[2]!.name).toBe('Stretch');
+    });
+
+    it('multiple rounds + roundRestSeconds + the last step\'s restAfterSeconds: roundRest fires at every non-final boundary, the one-time rest fires exactly once after the final round', () => {
+      const workout = makeWorkout({
+        steps: [step('Squats', 40, 30)],
+        rounds: 3,
+        roundRestSeconds: 15,
+        cooldown: [step('Stretch', 20)],
+      });
+      const segments = buildSegments(workout);
+      const roundRests = segments.filter((s) => s.kind === 'roundRest');
+      const oneTimeRests = segments.filter((s) => s.kind === 'rest');
+      expect(roundRests).toHaveLength(2);
+      expect(roundRests.every((s) => s.durationSeconds === 15)).toBe(true);
+      expect(oneTimeRests).toHaveLength(1);
+      expect(oneTimeRests[0]!.durationSeconds).toBe(30);
+      // The one-time rest sits immediately before cooldown, at the very end.
+      const stretchIndex = segments.findIndex((s) => s.name === 'Stretch');
+      expect(segments[stretchIndex - 1]).toBe(oneTimeRests[0]);
+      // It must NOT appear after round 1 or round 2's Squats — only roundRest does there.
+      const squatsIndices = segments.reduce<number[]>((acc, s, i) => (s.name === 'Squats' ? [...acc, i] : acc), []);
+      expect(segments[squatsIndices[0]! + 1]!.kind).toBe('roundRest');
+      expect(segments[squatsIndices[1]! + 1]!.kind).toBe('roundRest');
+      expect(segments[squatsIndices[2]! + 1]!.kind).toBe('rest');
+    });
+
+    it('multiple rounds with NO round rest + the last step\'s restAfterSeconds: no rest between non-final rounds, one-time rest still fires once at the end', () => {
+      const workout = makeWorkout({
+        steps: [step('Squats', 40, 30)],
+        rounds: 3,
+        roundRestSeconds: null,
+        cooldown: [step('Stretch', 20)],
+      });
+      const segments = buildSegments(workout);
+      expect(segments.filter((s) => s.kind === 'roundRest')).toHaveLength(0);
+      const restSegments = segments.filter((s) => s.kind === 'rest');
+      expect(restSegments).toHaveLength(1);
+      expect(restSegments[0]!.durationSeconds).toBe(30);
+      // Squats appears 3 times back-to-back with no rest between rounds 1-2 or 2-3.
+      const names = segments.map((s) => s.name);
+      expect(names).toEqual(['Squats', 'Squats', 'Squats', 'Rest', 'Stretch']);
+    });
+
+    it('exercise-level rest + round rest + the last step\'s one-time restAfterSeconds all fire independently with no interference', () => {
+      const workout = makeWorkout({
+        steps: [step('Squats', 40, 10), step('Push-ups', 30, 30)],
+        rounds: 2,
+        roundRestSeconds: 45,
+        cooldown: [step('Stretch', 20)],
+      });
+      const segments = buildSegments(workout);
+      const kindsAndDurations = segments.map((s) => `${s.kind}:${s.durationSeconds}`);
+      expect(kindsAndDurations).toEqual([
+        'exercise:40', // Squats round 1
+        'rest:10', // Squats' own inter-exercise rest
+        'exercise:30', // Push-ups round 1
+        'roundRest:45', // between rounds — Push-ups' own restAfterSeconds (30) ignored here
+        'exercise:40', // Squats round 2
+        'rest:10',
+        'exercise:30', // Push-ups round 2 (final round)
+        'rest:30', // Push-ups' own restAfterSeconds now fires — one-time, before cooldown
+        'exercise:20', // Stretch
+      ]);
+    });
+
+    it('no cooldown: the last main step of the final round is the true final step, so its restAfterSeconds never fires', () => {
+      const workout = makeWorkout({
+        steps: [step('Squats', 40, 30)],
+        rounds: 2,
+        roundRestSeconds: 15,
+        cooldown: [],
+      });
+      const segments = buildSegments(workout);
+      expect(segments).toHaveLength(3); // Squats, roundRest, Squats
+      expect(segments[segments.length - 1]!.name).toBe('Squats');
+      expect(segments.some((s) => s.durationSeconds === 30)).toBe(false);
+    });
+
+    it('no warmup: the main section starts immediately with no missing or extra segment', () => {
+      const workout = makeWorkout({ warmup: [], steps: [step('Squats', 40)], rounds: 1 });
+      const segments = buildSegments(workout);
+      expect(segments[0]!.origin).toBe('main');
+      expect(segments[0]!.name).toBe('Squats');
+    });
+
+    it('rounds:1 with roundRestSeconds set never fires a round rest (no round boundary exists)', () => {
+      const workout = makeWorkout({ steps: [step('Squats', 40)], rounds: 1, roundRestSeconds: 20 });
+      const segments = buildSegments(workout);
+      expect(segments.some((s) => s.kind === 'roundRest')).toBe(false);
+    });
   });
 });
 
@@ -143,7 +234,7 @@ describe('WorkoutEngine', () => {
     expect(snap.currentSegment?.name).toBe('Squats');
   });
 
-  it('transitions exercise -> rest -> exercise for a single round with explicit rest steps', () => {
+  it('transitions exercise -> rest -> exercise for a single round via restAfterSeconds', () => {
     const engine = new WorkoutEngine(makeWorkout(), { getReadySeconds: 0 });
     let snap = engine.start(T0);
     expect(snap.currentSegment?.name).toBe('Squats');
@@ -277,8 +368,16 @@ describe('WorkoutEngine', () => {
     expect(snap.state).toBe('complete');
   });
 
+  it('a reps-based step is manual-advance and carries its reps count through to the segment', () => {
+    const workout = makeWorkout({ steps: [{ ...step('Glute Bridge', null), reps: 15 }], rounds: 1 });
+    const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
+    const snap = engine.start(T0);
+    expect(snap.isManualAdvance).toBe(true);
+    expect(snap.currentSegment?.reps).toBe(15);
+  });
+
   it('cascades through every intermediate segment boundary when tick is called long after several should have elapsed (backgrounded tab)', () => {
-    const workout = makeWorkout({ steps: [step('A', 10), step('B', 10, 'rest'), step('C', 10)], rounds: 3, roundRestSeconds: 5 });
+    const workout = makeWorkout({ steps: [step('A', 10, 10), step('C', 10)], rounds: 3, roundRestSeconds: 5 });
     const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
     engine.start(T0);
     // Jump far past the entire workout in one tick.
@@ -288,10 +387,10 @@ describe('WorkoutEngine', () => {
   });
 
   it('cascades to a specific mid-workout point correctly, not just to complete', () => {
-    const workout = makeWorkout({ steps: [step('A', 10), step('B', 10, 'rest'), step('C', 10)], rounds: 2, roundRestSeconds: 5 });
+    const workout = makeWorkout({ steps: [step('A', 10, 10), step('C', 10)], rounds: 2, roundRestSeconds: 5 });
     const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
     engine.start(T0);
-    // A(10) + B(10) + C(10) + roundRest(5) = 35s elapses exactly into round 2's A.
+    // A(10) + rest(10) + C(10) + roundRest(5) = 35s elapses exactly into round 2's A.
     const snap = engine.tick(T0 + 35_000);
     expect(snap.state).toBe('exercise');
     expect(snap.currentSegment?.name).toBe('A');
@@ -369,12 +468,11 @@ describe('WorkoutEngine', () => {
     expect(snap.elapsedTotalMs).toBe(7000);
   });
 
-  it('plays through warmup -> one-time post-warmup rest -> round 1, occurring only once even across multiple rounds', () => {
+  it('plays through warmup -> one-time post-warmup rest (via the last warmup step) -> round 1, occurring only once even across multiple rounds', () => {
     const workout = makeWorkout({
-      warmup: [step('Walking warmup', 300)],
+      warmup: [step('Walking warmup', 300, 60)],
       steps: [step('Squats', 40)],
       rounds: 2,
-      postWarmupRestSeconds: 60,
     });
     const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
     let snap = engine.start(T0);
@@ -396,12 +494,11 @@ describe('WorkoutEngine', () => {
     expect(snap.roundNumber).toBe(2);
   });
 
-  it('plays through the last round -> one-time pre-cooldown rest -> cooldown', () => {
+  it("plays through the last round -> one-time pre-cooldown rest (via the last main step) -> cooldown", () => {
     const workout = makeWorkout({
-      steps: [step('Squats', 40)],
+      steps: [step('Squats', 40, 30)],
       rounds: 1,
       cooldown: [step('Stretch', 20)],
-      preCooldownRestSeconds: 30,
     });
     const engine = new WorkoutEngine(workout, { getReadySeconds: 0 });
     let snap = engine.start(T0);

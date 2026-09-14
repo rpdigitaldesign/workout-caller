@@ -10,10 +10,14 @@ import type { WorkoutSession, WorkoutStep } from '@/lib/workout/schema';
 import { formatDuration } from '@/lib/workout/duration';
 
 function StepLine({ step }: { step: WorkoutStep }) {
+  const amount = step.reps !== null ? `${step.reps} reps` : step.durationSeconds !== null ? `${step.durationSeconds}s` : '—';
   return (
     <li className="flex justify-between border-b border-border py-2 text-sm last:border-0">
       <span>{step.name}</span>
-      <span className="text-text-muted">{step.durationSeconds !== null ? `${step.durationSeconds}s` : '—'}</span>
+      <span className="text-text-muted">
+        {amount}
+        {step.restAfterSeconds ? ` · ${step.restAfterSeconds}s rest after` : ''}
+      </span>
     </li>
   );
 }
@@ -43,10 +47,7 @@ export default function SessionDetailPage() {
 
       {workout.warmup.length > 0 && (
         <Card className="mb-4">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
-            Warmup
-            {workout.postWarmupRestSeconds ? ` · ${workout.postWarmupRestSeconds}s rest after (one-time)` : ''}
-          </h2>
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">Warmup</h2>
           <ul>
             {workout.warmup.map((s) => (
               <StepLine key={s.id} step={s} />
@@ -59,7 +60,6 @@ export default function SessionDetailPage() {
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
           {workout.rounds} round{workout.rounds === 1 ? '' : 's'}
           {workout.roundRestSeconds ? ` · ${workout.roundRestSeconds}s between rounds` : ''}
-          {workout.preCooldownRestSeconds ? ` · ${workout.preCooldownRestSeconds}s rest after (one-time)` : ''}
         </h2>
         <ul>
           {workout.steps.map((s) => (

@@ -31,8 +31,10 @@ export interface Segment {
   name: string;
   /** null = manual-advance: the engine never auto-completes this segment; the user must call advanceManualStep(). */
   durationSeconds: number | null;
+  /** Rep count for a reps-based exercise segment; null for duration-based or synthetic rest segments. Mutually exclusive with durationSeconds by schema construction. */
+  reps: number | null;
   announce: string | null;
-  /** The WorkoutStep.id this segment was built from, or null for a synthetic round-rest segment. */
+  /** The WorkoutStep.id this segment was built from, or null for a synthetic rest/round-rest segment. */
   stepId: string | null;
   /** 1-based round number for 'main' segments, else null. */
   roundNumber: number | null;
@@ -69,84 +71,104 @@ function toSegment(step: WorkoutStep, origin: SegmentOrigin, roundNumber: number
   return {
     key: `${origin}-${step.id}-${seq}`,
     origin,
-    kind: step.type,
+    kind: 'exercise',
     name: step.name,
     durationSeconds: step.durationSeconds,
+    reps: step.reps,
     announce: step.announce,
     stepId: step.id,
     roundNumber,
   };
 }
 
+function restSegment(
+  origin: SegmentOrigin,
+  seconds: number,
+  roundNumber: number | null,
+  kind: Extract<SegmentKind, 'rest' | 'roundRest'>,
+  seq: number,
+): Segment {
+  return {
+    key: `${kind}-${origin}-${seq}`,
+    origin,
+    kind,
+    name: 'Rest',
+    durationSeconds: seconds,
+    reps: null,
+    announce: null,
+    stepId: null,
+    roundNumber,
+  };
+}
+
 /**
- * Flattens a Workout into an ordered list of Segments: warmup steps, then
- * (if `postWarmupRestSeconds` is set) a ONE-TIME rest, then `rounds`
- * repetitions of `steps` (with a synthetic roundRest segment between
- * repetitions — never after the last one, and never when roundRestSeconds
- * is null or 0), then (if `preCooldownRestSeconds` is set) a ONE-TIME
- * rest, then cooldown steps.
+ * Flattens a Workout into an ordered list of Segments.
  *
- * The two one-time rests are represented as plain `kind: 'rest'` segments
- * (not `roundRest`) since they aren't tied to round repetition — this
- * reuses the existing rest handling everywhere downstream (engine state,
- * speech, UI) with no new segment kind required.
+ * Rest lives on each step as `restAfterSeconds` — the rest between that
+ * step and the next one in the SAME list. This does double duty for the
+ * two one-time transition rests that used to be separate workout-level
+ * fields:
+ * - The LAST warmup step's `restAfterSeconds` is the one-time rest before
+ *   round 1 (warmup can never be the workout's true final step, since
+ *   `steps` is never empty, so this always applies normally).
+ * - The LAST main-section step's `restAfterSeconds`, evaluated ONLY
+ *   during the final round, is the one-time rest before cooldown. During
+ *   any non-final round, that same step's `restAfterSeconds` is ignored —
+ *   only `roundRestSeconds` fires at that boundary — so a repeating
+ *   between-round rest and a one-time pre-cooldown rest can never both
+ *   fire for the same transition.
+ * - Whatever step is the workout's true final step (last cooldown step,
+ *   or last main step of the final round if cooldown is empty — warmup is
+ *   never this step) has its `restAfterSeconds` suppressed unconditionally,
+ *   even if a positive value is stored on it, to avoid a meaningless
+ *   trailing rest with nothing after it. The stored value itself is left
+ *   untouched so reordering later doesn't lose the user's explicit choice.
  */
 export function buildSegments(workout: Workout): Segment[] {
   const segments: Segment[] = [];
   let seq = 0;
 
-  for (const step of workout.warmup) {
-    segments.push(toSegment(step, 'warmup', null, seq++));
+  const finalStep: WorkoutStep | undefined =
+    workout.cooldown.length > 0 ? workout.cooldown[workout.cooldown.length - 1] : workout.steps[workout.steps.length - 1];
+
+  function pushStepAndRest(step: WorkoutStep, origin: SegmentOrigin, roundNumber: number | null, suppress: boolean) {
+    segments.push(toSegment(step, origin, roundNumber, seq++));
+    if (!suppress && step.restAfterSeconds !== null && step.restAfterSeconds > 0) {
+      segments.push(restSegment(origin, step.restAfterSeconds, roundNumber, 'rest', seq++));
+    }
   }
 
-  if (workout.postWarmupRestSeconds !== null && workout.postWarmupRestSeconds > 0) {
-    segments.push({
-      key: `postwarmuprest-${seq++}`,
-      origin: 'warmup',
-      kind: 'rest',
-      name: 'Rest',
-      durationSeconds: workout.postWarmupRestSeconds,
-      announce: null,
-      stepId: null,
-      roundNumber: null,
-    });
+  for (const step of workout.warmup) {
+    pushStepAndRest(step, 'warmup', null, false);
   }
 
   for (let round = 1; round <= workout.rounds; round++) {
-    for (const step of workout.steps) {
-      segments.push(toSegment(step, 'main', round, seq++));
-    }
     const isLastRound = round === workout.rounds;
-    if (!isLastRound && workout.roundRestSeconds !== null && workout.roundRestSeconds > 0) {
-      segments.push({
-        key: `roundrest-${round}-${seq++}`,
-        origin: 'main',
-        kind: 'roundRest',
-        name: 'Rest',
-        durationSeconds: workout.roundRestSeconds,
-        announce: null,
-        stepId: null,
-        roundNumber: round,
-      });
-    }
-  }
-
-  if (workout.preCooldownRestSeconds !== null && workout.preCooldownRestSeconds > 0) {
-    segments.push({
-      key: `precooldownrest-${seq++}`,
-      origin: 'cooldown',
-      kind: 'rest',
-      name: 'Rest',
-      durationSeconds: workout.preCooldownRestSeconds,
-      announce: null,
-      stepId: null,
-      roundNumber: null,
+    workout.steps.forEach((step, i) => {
+      const isLastOfRound = i === workout.steps.length - 1;
+      if (isLastOfRound && !isLastRound) {
+        // Round boundary, not the final round: this step's own
+        // restAfterSeconds is ignored here — only roundRestSeconds fires,
+        // so the repeating between-round rest and any one-time
+        // pre-cooldown rest stored on this same step never double up.
+        segments.push(toSegment(step, 'main', round, seq++));
+        if (workout.roundRestSeconds !== null && workout.roundRestSeconds > 0) {
+          segments.push(restSegment('main', workout.roundRestSeconds, round, 'roundRest', seq++));
+        }
+      } else {
+        // Either an ordinary inter-exercise rest (repeats every round), or
+        // the last step of the FINAL round — in which case this step's own
+        // restAfterSeconds now serves as the one-time pre-cooldown rest.
+        const suppress = step === finalStep && isLastRound && isLastOfRound;
+        pushStepAndRest(step, 'main', round, suppress);
+      }
     });
   }
 
-  for (const step of workout.cooldown) {
-    segments.push(toSegment(step, 'cooldown', null, seq++));
-  }
+  workout.cooldown.forEach((step, i) => {
+    const suppress = i === workout.cooldown.length - 1; // true end of the workout — always suppressed
+    pushStepAndRest(step, 'cooldown', null, suppress);
+  });
 
   return segments;
 }

@@ -21,25 +21,38 @@ export const LIMITS = {
   MAX_COMMAND_TEXT_CHARS: 500, // input cap for /api/parse-command
 } as const;
 
-export const WorkoutStepTypeEnum = z.enum(['exercise', 'rest']);
-export type WorkoutStepType = z.infer<typeof WorkoutStepTypeEnum>;
-
 /**
- * durationSeconds is nullable on purpose: when the source text genuinely
- * doesn't specify a duration (e.g. "3 sets of 10 push-ups" with no time
- * given), the AI parser must emit null rather than invent a number. The
- * timer engine treats a null-duration step as "manual advance" — it never
- * auto-completes; the user taps Next.
+ * An exercise has exactly one "amount" — reps OR duration, never both
+ * (enforced by the refine below; both null remains valid, meaning the
+ * amount is genuinely unspecified — the AI parser must emit that rather
+ * than invent a number, and the timer engine treats a null-duration step
+ * as "manual advance": it never auto-completes, the user taps Next).
+ *
+ * `restAfterSeconds` is the rest between this step and the next one in
+ * the SAME list (warmup/steps/cooldown). It also does double duty for the
+ * two one-time transition rests that used to be separate fields: the
+ * LAST warmup step's `restAfterSeconds` is the one-time rest before round
+ * 1, and the LAST main-section step's `restAfterSeconds` — evaluated only
+ * during the final round — is the one-time rest before cooldown. See
+ * `buildSegments()` in engine.ts for the exact rule (in particular, why a
+ * non-final round ignores this field on the round's last step in favor of
+ * `roundRestSeconds`, and why the workout's true final step always
+ * suppresses it regardless of its stored value).
  */
-export const WorkoutStepSchema = z.object({
-  id: z.uuid(),
-  type: WorkoutStepTypeEnum,
-  name: z.string().trim().min(1).max(LIMITS.STEP_NAME_MAX),
-  durationSeconds: z.number().int().positive().max(LIMITS.MAX_STEP_SECONDS).nullable(),
-  reps: z.number().int().positive().max(LIMITS.MAX_REPS).nullable().default(null),
-  notes: z.string().trim().max(LIMITS.NOTES_MAX).nullable().default(null),
-  announce: z.string().trim().max(LIMITS.STEP_NAME_MAX).nullable().default(null),
-});
+export const WorkoutStepSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().trim().min(1).max(LIMITS.STEP_NAME_MAX),
+    durationSeconds: z.number().int().positive().max(LIMITS.MAX_STEP_SECONDS).nullable(),
+    reps: z.number().int().positive().max(LIMITS.MAX_REPS).nullable().default(null),
+    restAfterSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
+    notes: z.string().trim().max(LIMITS.NOTES_MAX).nullable().default(null),
+    announce: z.string().trim().max(LIMITS.STEP_NAME_MAX).nullable().default(null),
+  })
+  .refine((step) => !(step.durationSeconds !== null && step.reps !== null), {
+    message: 'A step cannot have both a duration and a rep count — choose one.',
+    path: ['reps'],
+  });
 export type WorkoutStep = z.infer<typeof WorkoutStepSchema>;
 
 /**
@@ -47,22 +60,16 @@ export type WorkoutStep = z.infer<typeof WorkoutStepSchema>;
  * `roundRestSeconds` inserted between repeats (never after the last one).
  * This mirrors how the user actually describes workouts ("3 rounds of
  * squats/rest/push-ups/rest") rather than a more general but unused
- * nested-rounds structure.
- *
- * `postWarmupRestSeconds` and `preCooldownRestSeconds` are distinct from
- * `roundRestSeconds` — each is a ONE-TIME rest (never repeated), inserted
- * once between warmup and round 1, or once between the last round and
- * cooldown. Without a dedicated field for these, an AI parse or manual
- * entry has nowhere correct to put such a rest other than `steps`, which
- * repeats every round — exactly the bug these two fields exist to avoid.
+ * nested-rounds structure. `roundRestSeconds` is the one genuinely
+ * distinct rest concept left at the workout level — every other rest
+ * (between exercises, after warmup, before cooldown) lives on the step
+ * itself via `restAfterSeconds` (see WorkoutStepSchema above).
  */
 export const WorkoutSchema = z
   .object({
     title: z.string().trim().min(1).max(LIMITS.TITLE_MAX),
     rounds: z.number().int().positive().max(LIMITS.MAX_ROUNDS).default(1),
     roundRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
-    postWarmupRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
-    preCooldownRestSeconds: z.number().int().nonnegative().max(LIMITS.MAX_STEP_SECONDS).nullable().default(null),
     warmup: z.array(WorkoutStepSchema).max(LIMITS.MAX_STEPS).default([]),
     steps: z.array(WorkoutStepSchema).min(1).max(LIMITS.MAX_STEPS),
     cooldown: z.array(WorkoutStepSchema).max(LIMITS.MAX_STEPS).default([]),

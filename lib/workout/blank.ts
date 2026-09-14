@@ -6,16 +6,14 @@ export function blankWorkout(): Workout {
     title: '',
     rounds: 1,
     roundRestSeconds: null,
-    postWarmupRestSeconds: null,
-    preCooldownRestSeconds: null,
     warmup: [],
     steps: [
       {
         id: uuid(),
-        type: 'exercise',
         name: '',
         durationSeconds: 30,
         reps: null,
+        restAfterSeconds: 30,
         notes: null,
         announce: null,
       },

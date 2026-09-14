@@ -1,57 +1,44 @@
-import type { Workout, WorkoutStep } from './schema';
-
-/**
- * Sum of a step list's durations. Manual-advance steps (durationSeconds
- * === null) contribute 0 to the estimate since there's no way to know how
- * long the user will take — callers surface `hasManualSteps` so the UI can
- * show "28:30+" instead of a false-precision number.
- */
-function sumSteps(steps: WorkoutStep[]): { seconds: number; hasManualSteps: boolean } {
-  let seconds = 0;
-  let hasManualSteps = false;
-  for (const step of steps) {
-    if (step.durationSeconds === null) {
-      hasManualSteps = true;
-    } else {
-      seconds += step.durationSeconds;
-    }
-  }
-  return { seconds, hasManualSteps };
-}
+import type { Workout } from './schema';
+import { buildSegments } from './engine';
 
 export interface EstimatedDuration {
   totalSeconds: number;
   hasManualSteps: boolean;
 }
 
+/** Planning-only estimate for a reps-based exercise. Never used by the timer
+ * itself (Segment.durationSeconds stays null for these — see engine.ts) —
+ * purely so the workout's total estimated duration is a reasonable number
+ * instead of silently undercounting every reps-based exercise as 0s. Not
+ * user-configurable (spec: no rep-speed settings in this pass). */
+const REP_DURATION_ESTIMATE_SECONDS = 3;
+
 /**
- * Computes total estimated duration locally — warmup + postWarmupRestSeconds
- * (once) + (steps x rounds, with roundRestSeconds inserted after every
- * round except the last) + preCooldownRestSeconds (once) + cooldown. This
+ * Computes total estimated duration by summing the exact same segment
+ * list the timer engine will actually play (`buildSegments()`) — this
+ * guarantees the estimate can never drift from real playback behavior,
+ * including the round-boundary rest-supersession rule and the
+ * true-final-step rest suppression (see buildSegments()'s doc comment).
+ * A reps-based segment contributes `reps * REP_DURATION_ESTIMATE_SECONDS`
+ * as an estimate; a segment with neither duration nor reps set (genuinely
+ * unspecified) contributes 0. Either way, callers surface `hasManualSteps`
+ * so the UI can show "28:30+" rather than a false-precision number. This
  * must never be delegated to Claude (spec section 13).
  */
 export function estimateWorkoutDuration(workout: Workout): EstimatedDuration {
   let totalSeconds = 0;
   let hasManualSteps = false;
 
-  const warmup = sumSteps(workout.warmup);
-  totalSeconds += warmup.seconds;
-  hasManualSteps ||= warmup.hasManualSteps;
-
-  totalSeconds += workout.postWarmupRestSeconds ?? 0;
-
-  const perRound = sumSteps(workout.steps);
-  const roundRest = workout.roundRestSeconds ?? 0;
-
-  totalSeconds += perRound.seconds * workout.rounds;
-  hasManualSteps ||= perRound.hasManualSteps && workout.rounds > 0;
-  totalSeconds += roundRest * Math.max(0, workout.rounds - 1);
-
-  totalSeconds += workout.preCooldownRestSeconds ?? 0;
-
-  const cooldown = sumSteps(workout.cooldown);
-  totalSeconds += cooldown.seconds;
-  hasManualSteps ||= cooldown.hasManualSteps;
+  for (const segment of buildSegments(workout)) {
+    if (segment.durationSeconds !== null) {
+      totalSeconds += segment.durationSeconds;
+    } else if (segment.reps !== null) {
+      totalSeconds += segment.reps * REP_DURATION_ESTIMATE_SECONDS;
+      hasManualSteps = true;
+    } else {
+      hasManualSteps = true;
+    }
+  }
 
   return { totalSeconds, hasManualSteps };
 }

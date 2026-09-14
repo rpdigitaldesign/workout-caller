@@ -18,7 +18,7 @@ afterEach(() => {
 describe('parseWorkoutFromText', () => {
   it('never calls the real Anthropic network layer (mocked client only)', async () => {
     mockCreate.mockResolvedValueOnce(
-      toolUseResponse('record_workout', { title: 'Test', rounds: 1, steps: [{ type: 'exercise', name: 'Squats', durationSeconds: 40 }] }),
+      toolUseResponse('record_workout', { title: 'Test', rounds: 1, steps: [{ name: 'Squats', durationSeconds: 40 }] }),
     );
     await parseWorkoutFromText('3 rounds of squats');
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -31,9 +31,8 @@ describe('parseWorkoutFromText', () => {
         rounds: 3,
         roundRestSeconds: 60,
         steps: [
-          { type: 'exercise', name: 'Goblet squats', durationSeconds: 40 },
-          { type: 'rest', name: 'Rest', durationSeconds: 20 },
-          { type: 'exercise', name: 'Push-ups', durationSeconds: 30 },
+          { name: 'Goblet squats', durationSeconds: 40, restAfterSeconds: 20 },
+          { name: 'Push-ups', durationSeconds: 30 },
         ],
       }),
     );
@@ -42,35 +41,36 @@ describe('parseWorkoutFromText', () => {
     if (result.ok) {
       expect(result.workout.title).toBe('Leg Day');
       expect(result.workout.rounds).toBe(3);
-      expect(result.workout.steps).toHaveLength(3);
+      expect(result.workout.steps).toHaveLength(2);
       expect(result.workout.steps.every((s) => typeof s.id === 'string' && s.id.length > 0)).toBe(true);
+      expect(result.workout.steps[0]!.restAfterSeconds).toBe(20);
     }
   });
 
-  it('accepts a step with a missing duration as null rather than inventing one', async () => {
+  it('accepts a step with a missing duration and reps as both null rather than inventing one', async () => {
     mockCreate.mockResolvedValueOnce(
       toolUseResponse('record_workout', {
         title: 'AMRAP',
         rounds: 1,
-        steps: [{ type: 'exercise', name: 'Push-ups', durationSeconds: null }],
+        steps: [{ name: 'Push-ups', durationSeconds: null }],
       }),
     );
     const result = await parseWorkoutFromText('do push-ups, as many as possible');
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.workout.steps[0]!.durationSeconds).toBeNull();
+      expect(result.workout.steps[0]!.reps).toBeNull();
     }
   });
 
-  it('puts a one-time post-warmup rest in postWarmupRestSeconds, not duplicated into every round', async () => {
+  it('puts a one-time post-warmup rest on the last warmup step\'s restAfterSeconds, not duplicated into every round', async () => {
     mockCreate.mockResolvedValueOnce(
       toolUseResponse('record_workout', {
         title: 'Walking Warmup Circuit',
         rounds: 3,
         roundRestSeconds: 60,
-        postWarmupRestSeconds: 60,
-        warmup: [{ type: 'exercise', name: 'Walking warmup', durationSeconds: 300 }],
-        steps: [{ type: 'exercise', name: 'Burpees', durationSeconds: 40 }],
+        warmup: [{ name: 'Walking warmup', durationSeconds: 300, restAfterSeconds: 60 }],
+        steps: [{ name: 'Burpees', durationSeconds: 40 }],
       }),
     );
     const result = await parseWorkoutFromText(
@@ -78,13 +78,43 @@ describe('parseWorkoutFromText', () => {
     );
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.workout.postWarmupRestSeconds).toBe(60);
+      expect(result.workout.warmup).toHaveLength(1);
+      expect(result.workout.warmup[0]!.restAfterSeconds).toBe(60);
       expect(result.workout.roundRestSeconds).toBe(60);
       // The one-time rest must not also appear as an extra step repeated every round.
       expect(result.workout.steps).toHaveLength(1);
       expect(result.workout.steps[0]!.name).toBe('Burpees');
-      expect(result.workout.warmup).toHaveLength(1);
     }
+  });
+
+  it('represents "12 each side" as total reps with the original phrasing preserved in notes', async () => {
+    mockCreate.mockResolvedValueOnce(
+      toolUseResponse('record_workout', {
+        title: 'Lunges',
+        rounds: 1,
+        steps: [{ name: 'Lunges', durationSeconds: null, reps: 24, notes: '12 each side' }],
+      }),
+    );
+    const result = await parseWorkoutFromText('lunges, 12 each side');
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.workout.steps[0]!.reps).toBe(24);
+      expect(result.workout.steps[0]!.durationSeconds).toBeNull();
+      expect(result.workout.steps[0]!.notes).toContain('each side');
+    }
+  });
+
+  it('returns invalid_ai_output when a step has both a duration and a rep count set (refine backstop)', async () => {
+    mockCreate.mockResolvedValueOnce(
+      toolUseResponse('record_workout', {
+        title: 'Bad',
+        rounds: 1,
+        steps: [{ name: 'Squats', durationSeconds: 40, reps: 15 }],
+      }),
+    );
+    const result = await parseWorkoutFromText('squats 40 seconds, 15 reps');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('invalid_ai_output');
   });
 
   it('returns invalid_ai_output when the model declines to call the tool (unparseable input)', async () => {
@@ -106,7 +136,7 @@ describe('parseWorkoutFromText', () => {
 
   it('returns invalid_ai_output when the validated shape violates domain limits (e.g. zero rounds after transform)', async () => {
     mockCreate.mockResolvedValueOnce(
-      toolUseResponse('record_workout', { title: 'Bad', rounds: 0, steps: [{ type: 'exercise', name: 'X', durationSeconds: 10 }] }),
+      toolUseResponse('record_workout', { title: 'Bad', rounds: 0, steps: [{ name: 'X', durationSeconds: 10 }] }),
     );
     const result = await parseWorkoutFromText('nonsense rounds');
     expect(result.ok).toBe(false);
@@ -145,7 +175,7 @@ describe('parseWorkoutFromText', () => {
 
   it('sends a system prompt that instructs the model never to invent exercises', async () => {
     mockCreate.mockResolvedValueOnce(
-      toolUseResponse('record_workout', { title: 'T', rounds: 1, steps: [{ type: 'exercise', name: 'X', durationSeconds: 10 }] }),
+      toolUseResponse('record_workout', { title: 'T', rounds: 1, steps: [{ name: 'X', durationSeconds: 10 }] }),
     );
     await parseWorkoutFromText('some workout text');
     const callArgs = mockCreate.mock.calls[0]![0];

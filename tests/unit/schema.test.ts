@@ -6,7 +6,6 @@ import { WorkoutCommandSchema } from '@/types/command';
 function validStep(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: uuid(),
-    type: 'exercise',
     name: 'Squats',
     durationSeconds: 40,
     ...overrides,
@@ -44,6 +43,32 @@ describe('WorkoutStepSchema', () => {
     const tooLong = 'x'.repeat(LIMITS.STEP_NAME_MAX + 1);
     expect(WorkoutStepSchema.safeParse(validStep({ name: tooLong })).success).toBe(false);
   });
+
+  it('accepts a reps-only step (null duration)', () => {
+    expect(WorkoutStepSchema.safeParse(validStep({ durationSeconds: null, reps: 15 })).success).toBe(true);
+  });
+
+  it('accepts a step with neither reps nor duration set (genuinely unspecified)', () => {
+    expect(WorkoutStepSchema.safeParse(validStep({ durationSeconds: null, reps: null })).success).toBe(true);
+  });
+
+  it('rejects a step with both duration and reps set', () => {
+    expect(WorkoutStepSchema.safeParse(validStep({ durationSeconds: 40, reps: 15 })).success).toBe(false);
+  });
+
+  it('defaults restAfterSeconds to null when omitted', () => {
+    const parsed = WorkoutStepSchema.parse(validStep());
+    expect(parsed.restAfterSeconds).toBeNull();
+  });
+
+  it('accepts an explicit restAfterSeconds, including explicit zero', () => {
+    expect(WorkoutStepSchema.safeParse(validStep({ restAfterSeconds: 30 })).success).toBe(true);
+    expect(WorkoutStepSchema.parse(validStep({ restAfterSeconds: 0 })).restAfterSeconds).toBe(0);
+  });
+
+  it('rejects a negative restAfterSeconds', () => {
+    expect(WorkoutStepSchema.safeParse(validStep({ restAfterSeconds: -5 })).success).toBe(false);
+  });
 });
 
 describe('WorkoutSchema', () => {
@@ -79,21 +104,14 @@ describe('WorkoutSchema', () => {
     expect(parsed.tags).toEqual([]);
   });
 
-  it('defaults postWarmupRestSeconds and preCooldownRestSeconds to null when omitted', () => {
+  it('no longer has postWarmupRestSeconds/preCooldownRestSeconds keys — those fields were removed in favor of per-step restAfterSeconds', () => {
     const parsed = WorkoutSchema.parse(validWorkout());
-    expect(parsed.postWarmupRestSeconds).toBeNull();
-    expect(parsed.preCooldownRestSeconds).toBeNull();
+    expect(parsed).not.toHaveProperty('postWarmupRestSeconds');
+    expect(parsed).not.toHaveProperty('preCooldownRestSeconds');
   });
 
-  it('accepts explicit postWarmupRestSeconds and preCooldownRestSeconds values', () => {
-    const parsed = WorkoutSchema.parse(validWorkout({ postWarmupRestSeconds: 60, preCooldownRestSeconds: 30 }));
-    expect(parsed.postWarmupRestSeconds).toBe(60);
-    expect(parsed.preCooldownRestSeconds).toBe(30);
-  });
-
-  it('rejects a negative postWarmupRestSeconds or preCooldownRestSeconds', () => {
-    expect(WorkoutSchema.safeParse(validWorkout({ postWarmupRestSeconds: -5 })).success).toBe(false);
-    expect(WorkoutSchema.safeParse(validWorkout({ preCooldownRestSeconds: -5 })).success).toBe(false);
+  it('rejects a negative roundRestSeconds', () => {
+    expect(WorkoutSchema.safeParse(validWorkout({ roundRestSeconds: -5 })).success).toBe(false);
   });
 });
 
