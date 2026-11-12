@@ -69,7 +69,7 @@ export default function EditTemplatePage() {
           setIsDirty(true);
         }}
       />
-      <div className="sticky bottom-0 -mx-4 mt-6 flex gap-3 border-t border-border bg-bg/95 px-4 py-4 backdrop-blur">
+      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] -mx-4 mt-6 flex gap-3 border-t border-border bg-bg/95 px-4 py-4 backdrop-blur md:bottom-0">
         <Button size="lg" disabled={!canSave || saving} onClick={handleSave}>
           {saving ? 'Saving…' : 'Save Changes'}
         </Button>
