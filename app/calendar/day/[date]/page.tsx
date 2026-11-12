@@ -1,5 +1,6 @@
 'use client';
 
+import { BackButton } from '@/components/ui/BackButton';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
@@ -174,9 +175,9 @@ export default function DayDetailsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <button className="mb-4 text-sm text-text-muted hover:text-text" onClick={() => router.push('/calendar')}>
-        ← Back to Calendar
-      </button>
+      <div className="mb-2">
+        <BackButton onClick={() => router.push('/calendar')} label="Back to Calendar" />
+      </div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">{label}</h1>
         <Button onClick={() => setQuickAdd(true)}>Schedule Workout</Button>

@@ -1,5 +1,6 @@
 'use client';
 
+import { BackButton } from '@/components/ui/BackButton';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { WorkoutEditor } from '@/components/editor/WorkoutEditor';
@@ -57,13 +58,7 @@ export default function EditTemplatePage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="focus-ring -ml-1 rounded-lg px-1 py-1 text-sm font-semibold text-text-muted hover:text-text"
-        >
-          ‹ Back
-        </button>
+        <BackButton onClick={handleBack} />
         <h1 className="text-2xl font-bold">Edit Workout</h1>
       </div>
       {error && <p className="mb-4 rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}

@@ -146,7 +146,7 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
   if (phase === 'preview') {
     const estimate = estimateWorkoutDuration(workout);
     return (
-      <div className="flex h-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 text-center short:py-3">
+      <div className="flex h-safe-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 text-center short:py-3">
         <h1 className="line-clamp-2 shrink-0 text-3xl font-bold short:text-xl">{workout.title}</h1>
 
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden short:gap-1.5">

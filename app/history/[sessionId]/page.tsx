@@ -1,9 +1,9 @@
 'use client';
 
+import { BackButton } from '@/components/ui/BackButton';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
 import { getSession } from '@/lib/database/sessions';
 import type { WorkoutSession, WorkoutStep } from '@/lib/workout/schema';
@@ -39,6 +39,9 @@ export default function SessionDetailPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      <div className="mb-2">
+        <BackButton onClick={() => router.push('/history')} label="Back to History" />
+      </div>
       <h1 className="mb-1 text-2xl font-bold">{session.title}</h1>
       <p className="mb-6 text-text-muted">
         {new Date(session.startedAt).toLocaleString()} ·{' '}
@@ -81,9 +84,6 @@ export default function SessionDetailPage() {
 
       {workout.notes && <p className="mb-4 text-sm text-text-muted">{workout.notes}</p>}
 
-      <Button variant="ghost" onClick={() => router.push('/history')}>
-        Back to History
-      </Button>
     </div>
   );
 }

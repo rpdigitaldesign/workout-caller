@@ -22,7 +22,7 @@ export function CompletionScreen({
   const isPartial = snapshot.completionReason === 'early';
 
   return (
-    <div className="flex h-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 text-center short:py-3">
+    <div className="flex h-safe-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 text-center short:py-3">
       <p className="shrink-0 text-3xl font-extrabold uppercase tracking-widest text-accent short:text-xl">
         {isPartial ? 'Workout Ended' : 'Workout Complete'}
       </p>

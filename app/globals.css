@@ -11,6 +11,19 @@
  */
 @custom-variant short (@media (max-height: 500px));
 
+/**
+ * Full-height containers that must not run under the status bar / Dynamic Island
+ * or the home indicator. The app shell pads its root by the safe-area insets once
+ * (components/nav/AppShell.tsx); screens that fill exactly one viewport height use
+ * these instead of h-dvh / min-h-dvh so shell padding + content = one screen.
+ */
+@utility h-safe-dvh {
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+@utility min-h-safe-dvh {
+  min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+}
+
 @theme {
   --color-bg: #0a0a0a;
   --color-surface: #161616;
