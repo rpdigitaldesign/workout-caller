@@ -129,3 +129,23 @@ export async function listSessionsByTemplate(
   if (error) throw error;
   return (data as WorkoutSessionRow[]).map(toDomain);
 }
+
+/**
+ * How often and when each saved workout was done, for the Workouts list. Fetches only
+ * two columns (not whole sessions). Looks at the most recent 1000 sessions (the API's own
+ * row cap), which is more than this app will hold for a long time.
+ */
+export async function listTemplateUsageRows(
+  client: SupabaseClient,
+  userId: string,
+): Promise<Array<{ template_id: string | null; started_at: string }>> {
+  const { data, error } = await client
+    .from('workout_sessions')
+    .select('template_id, started_at')
+    .eq('user_id', userId)
+    .not('template_id', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+  return data as Array<{ template_id: string | null; started_at: string }>;
+}

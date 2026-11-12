@@ -1,5 +1,6 @@
 'use client';
 
+import { localDateStr } from '@/lib/calendar/today';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
@@ -21,7 +22,7 @@ type ViewMode = 'month' | 'week' | 'agenda';
 type Filter = 'all' | CalendarItemStatus;
 
 function todayDateStr(): string {
-  return new Intl.DateTimeFormat('en-CA').format(new Date());
+  return localDateStr();
 }
 
 export default function CalendarPage() {

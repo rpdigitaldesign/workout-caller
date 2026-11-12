@@ -12,15 +12,27 @@ import { useAuthUser } from '@/hooks/useAuthUser';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
 import { deleteTemplate, duplicateTemplate, listAllTemplates } from '@/lib/database/templates';
 import { scheduleWorkout } from '@/lib/database/scheduled';
+import { listTemplateUsageRows } from '@/lib/database/sessions';
+import {
+  TEMPLATE_SORT_LABELS,
+  computeUsage,
+  describeLastDone,
+  matchesQuery,
+  sortTemplates,
+  type TemplateSort,
+  type TemplateUsage,
+} from '@/lib/workout/templateList';
 import { saveDraft } from '@/lib/workout/draftStore';
 import type { ModifyWorkoutResult, WorkoutTemplate } from '@/lib/workout/schema';
 import { formatDuration, estimateWorkoutDuration } from '@/lib/workout/duration';
 
 function TemplateCard({
   template,
+  usage,
   onChanged,
 }: {
   template: WorkoutTemplate;
+  usage: TemplateUsage | undefined;
   onChanged: () => void;
 }) {
   const router = useRouter();
@@ -90,6 +102,10 @@ function TemplateCard({
           <p className="text-sm text-text-muted">
             {template.workout.rounds} round{template.workout.rounds === 1 ? '' : 's'} · {formatDuration(estimate.totalSeconds)}
             {estimate.hasManualSteps ? '+' : ''}
+          </p>
+          <p className="text-sm text-text-muted">
+            {describeLastDone(usage?.lastAt)}
+            {usage && usage.count > 1 ? ` · done ${usage.count} times` : ''}
           </p>
           {template.workout.tags.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1">
@@ -172,11 +188,18 @@ export default function WorkoutsPage() {
   const router = useRouter();
   const [templates, setTemplates] = useState<WorkoutTemplate[] | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<TemplateSort>('recent');
+  const [usage, setUsage] = useState<Map<string, TemplateUsage>>(new Map());
 
   const refresh = () => {
     if (!user) return;
     const client = createSupabaseBrowserClient();
     void listAllTemplates(client, user.id).then(setTemplates);
+    // Usage is a nice-to-have: if it can't load, the list still works without "last done".
+    void listTemplateUsageRows(client, user.id)
+      .then((rows) => setUsage(computeUsage(rows)))
+      .catch(() => setUsage(new Map()));
   };
 
   useEffect(refresh, [user]);
@@ -187,7 +210,11 @@ export default function WorkoutsPage() {
     return Array.from(set).sort();
   }, [templates]);
 
-  const visible = (templates ?? []).filter((t) => !tagFilter || t.workout.tags.includes(tagFilter));
+  const visible = sortTemplates(
+    (templates ?? []).filter((t) => (!tagFilter || t.workout.tags.includes(tagFilter)) && matchesQuery(t, query)),
+    usage,
+    sort,
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -195,6 +222,31 @@ export default function WorkoutsPage() {
         <h1 className="text-2xl font-bold">Workouts</h1>
         <Button onClick={() => router.push('/create')}>+ New</Button>
       </div>
+
+      {(templates?.length ?? 0) > 1 && (
+        <div className="mb-4 flex gap-2">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search workouts"
+            aria-label="Search workouts"
+            className="focus-ring min-h-11 min-w-0 flex-1 rounded-lg border border-border bg-bg px-3"
+          />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as TemplateSort)}
+            aria-label="Sort workouts"
+            className="focus-ring min-h-11 rounded-lg border border-border bg-bg px-3 text-sm"
+          >
+            {(Object.keys(TEMPLATE_SORT_LABELS) as TemplateSort[]).map((k) => (
+              <option key={k} value={k}>
+                {TEMPLATE_SORT_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {allTags.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
@@ -217,11 +269,14 @@ export default function WorkoutsPage() {
       )}
 
       {templates === null && <p className="text-text-muted">Loading…</p>}
-      {templates !== null && visible.length === 0 && <p className="text-text-muted">No workouts yet.</p>}
+      {templates !== null && templates.length === 0 && <p className="text-text-muted">No workouts yet.</p>}
+      {templates !== null && templates.length > 0 && visible.length === 0 && (
+        <p className="text-text-muted">No workouts match{query.trim() ? ` "${query.trim()}"` : ' that filter'}.</p>
+      )}
 
       <div className="flex flex-col gap-4">
         {visible.map((template) => (
-          <TemplateCard key={template.id} template={template} onChanged={refresh} />
+          <TemplateCard key={template.id} template={template} usage={usage.get(template.id)} onChanged={refresh} />
         ))}
       </div>
     </div>

@@ -9,10 +9,11 @@ import { useAuthUser } from '@/hooks/useAuthUser';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
 import { listUpcomingScheduledWorkouts } from '@/lib/database/scheduled';
 import { saveDraft } from '@/lib/workout/draftStore';
+import { localDateStr } from '@/lib/calendar/today';
 import type { ScheduledWorkout } from '@/lib/workout/schema';
 
 function todayDateStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 function formatDayLabel(dateStr: string): string {
@@ -21,7 +22,7 @@ function formatDayLabel(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  if (dateStr === tomorrow.toISOString().slice(0, 10)) return 'Tomorrow';
+  if (dateStr === localDateStr(tomorrow)) return 'Tomorrow';
   return date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
@@ -33,7 +34,10 @@ export function ComingUpList() {
   useEffect(() => {
     if (!user) return;
     const client = createSupabaseBrowserClient();
-    void listUpcomingScheduledWorkouts(client, user.id, { fromDate: todayDateStr(), limit: 5 }).then(setItems);
+    void listUpcomingScheduledWorkouts(client, user.id, { fromDate: todayDateStr(), limit: 6 }).then((all) =>
+      // Today's workouts have their own card at the top of Home.
+      setItems(all.filter((i) => i.scheduledDate !== todayDateStr()).slice(0, 5)),
+    );
   }, [user]);
 
   const handleStart = (item: ScheduledWorkout) => {
