@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { MoreMenu } from '@/components/ui/MoreMenu';
 import { QuickAddSheet } from '@/components/calendar/QuickAddSheet';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
@@ -35,22 +36,20 @@ function ScheduledCard({ item, onChanged }: { item: ScheduledWorkout; onChanged:
       <h3 className="text-lg font-semibold">{item.title}</h3>
       {item.scheduledTime && <p className="text-text-muted">{item.scheduledTime}</p>}
       {item.notes && <p className="mt-1 text-sm text-text-muted">{item.notes}</p>}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="md" onClick={handleStart}>
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="md" onClick={handleStart} className="flex-1">
           Start
         </Button>
         <Button size="md" variant="secondary" onClick={() => router.push(`/calendar/scheduled/${item.id}`)}>
           Edit
         </Button>
-        <Button size="md" variant="secondary" onClick={() => setRescheduling((v) => !v)}>
-          Reschedule
-        </Button>
-        <Button size="md" variant="secondary" onClick={() => setConfirmSkip(true)}>
-          Skip
-        </Button>
-        <Button size="md" variant="danger" onClick={() => setConfirmDelete(true)}>
-          Delete
-        </Button>
+        <MoreMenu
+          items={[
+            { label: 'Reschedule', onSelect: () => setRescheduling((v) => !v) },
+            { label: 'Skip', onSelect: () => setConfirmSkip(true) },
+            { label: 'Delete', danger: true, onSelect: () => setConfirmDelete(true) },
+          ]}
+        />
       </div>
       {rescheduling && (
         <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
