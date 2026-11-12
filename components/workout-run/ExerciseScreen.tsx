@@ -1,5 +1,6 @@
 import type { TimerSnapshot } from '@/lib/workout/engine';
 import { formatDuration } from '@/lib/workout/duration';
+import { describeNextUp } from '@/lib/workout/nextUp';
 import { ProgressBar } from './ProgressBar';
 import { Button } from '@/components/ui/Button';
 
@@ -24,6 +25,7 @@ export function ExerciseScreen({
   onAdvanceManual: () => void;
 }) {
   const segment = snapshot.currentSegment!;
+  const nextUp = describeNextUp(snapshot);
   const seconds = snapshot.remainingMs !== null ? Math.ceil(snapshot.remainingMs / 1000) : null;
   const fraction =
     segment.durationSeconds && snapshot.remainingMs !== null ? 1 - snapshot.remainingMs / (segment.durationSeconds * 1000) : 0;
@@ -52,9 +54,9 @@ export function ExerciseScreen({
             {seconds !== null ? formatDuration(seconds) : '∞'}
           </p>
         )}
-        {snapshot.nextSegment && (
-          <p className="line-clamp-1 text-xl text-text-muted short:text-base">
-            Next: <span className="font-semibold text-text">{snapshot.nextSegment.name}</span>
+        {nextUp && (
+          <p className="line-clamp-2 text-xl text-text-muted short:line-clamp-1 short:text-base">
+            Next: <span className="font-semibold text-text">{nextUp}</span>
           </p>
         )}
       </div>

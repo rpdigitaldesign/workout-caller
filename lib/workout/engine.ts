@@ -55,6 +55,8 @@ export interface TimerSnapshot {
   isManualAdvance: boolean;
   currentSegment: Segment | null;
   nextSegment: Segment | null;
+  /** The next segment that is an actual exercise (skips any rest in between); null when none remain. */
+  nextExercise: Segment | null;
   prevAvailable: boolean;
   completionReason: CompletionReason;
 }
@@ -323,6 +325,7 @@ export class WorkoutEngine {
   getSnapshot(now = Date.now()): TimerSnapshot {
     const segment = this.currentSegmentOrNull();
     const nextSegment = this.computeNextSegment();
+    const nextExercise = this.computeNextExercise();
 
     let remainingMs: number | null;
     if (this.state === 'paused') {
@@ -351,6 +354,7 @@ export class WorkoutEngine {
       isManualAdvance: segment?.durationSeconds === null,
       currentSegment: segment,
       nextSegment,
+      nextExercise,
       prevAvailable: this.segmentIndex > 0,
       completionReason: this.completionReason,
     };
@@ -360,6 +364,15 @@ export class WorkoutEngine {
     return this.segmentIndex >= 0 && this.segmentIndex < this.segments.length
       ? this.segments[this.segmentIndex]!
       : null;
+  }
+
+  private computeNextExercise(): Segment | null {
+    const from = this.state === 'preparing' ? 0 : this.segmentIndex + 1;
+    for (let i = from; i < this.segments.length; i++) {
+      const segment = this.segments[i]!;
+      if (segment.kind === 'exercise') return segment;
+    }
+    return null;
   }
 
   private computeNextSegment(): Segment | null {

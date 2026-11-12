@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { v4 as uuid } from 'uuid';
 import { useWorkoutTimer } from '@/hooks/useWorkoutTimer';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useSpeechSettings } from '@/hooks/useSpeechSettings';
 import { useIntervalAnnouncements } from '@/hooks/useIntervalAnnouncements';
@@ -39,6 +41,8 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
   const timer = useWorkoutTimer(workout, getReadySeconds);
   const [phase, setPhase] = useState<'preview' | 'running'>(isRecovery ? 'running' : 'preview');
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const leaveFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'synced' | 'queued'>('idle');
   const restoredRef = useRef(false);
   const completionHandledRef = useRef(false);
@@ -47,6 +51,16 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
   const isRunActive = phase === 'running' && snapshot.state !== 'idle' && snapshot.state !== 'complete';
 
   useWakeLock(isRunActive);
+  const { leave } = useLeaveGuard(isRunActive, () => {
+    timer.pause();
+    setConfirmLeave(true);
+  });
+  useEffect(
+    () => () => {
+      if (leaveFallbackRef.current) clearTimeout(leaveFallbackRef.current);
+    },
+    [],
+  );
   useIntervalAnnouncements(snapshot, settings, tonesEnabled);
 
   // Restore a recovered run's exact position once, on mount.
@@ -195,6 +209,22 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
       {snapshot.state === 'paused' && (
         <PauseOverlay snapshot={snapshot} onResume={handleResume} onEndEarly={() => setConfirmEnd(true)} />
       )}
+      <ConfirmDialog
+        open={confirmLeave}
+        title="Leave this workout?"
+        description="Your workout is paused, not lost. You can pick it up again from the Home screen."
+        confirmLabel="Leave"
+        cancelLabel="Keep going"
+        danger
+        initialFocus="cancel"
+        onCancel={() => setConfirmLeave(false)}
+        onConfirm={() => {
+          setConfirmLeave(false);
+          leave();
+          // If there was no earlier page to go back to, fall back to Home.
+          leaveFallbackRef.current = setTimeout(() => router.push('/'), 400);
+        }}
+      />
       <EndWorkoutDialog
         open={confirmEnd}
         onContinue={() => setConfirmEnd(false)}

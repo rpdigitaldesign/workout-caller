@@ -1,5 +1,6 @@
 import type { TimerSnapshot } from '@/lib/workout/engine';
 import { formatDuration } from '@/lib/workout/duration';
+import { formatSegmentAmount } from '@/lib/workout/nextUp';
 import { ProgressBar } from './ProgressBar';
 import { Button } from '@/components/ui/Button';
 
@@ -44,6 +45,9 @@ export function RestScreen({
           <div className="min-h-0">
             <p className="text-sm font-semibold uppercase tracking-widest text-text-muted short:text-xs">Next</p>
             <p className="line-clamp-1 text-3xl font-bold short:text-xl">{snapshot.nextSegment.name}</p>
+            {formatSegmentAmount(snapshot.nextSegment) && (
+              <p className="text-lg text-text-muted short:hidden">{formatSegmentAmount(snapshot.nextSegment)}</p>
+            )}
           </div>
         )}
       </div>
