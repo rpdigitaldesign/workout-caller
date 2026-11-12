@@ -64,10 +64,9 @@ Fill in `.env.local` (see the two provisioning sections below for where each val
 ANTHROPIC_API_KEY=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-`ANTHROPIC_API_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are server-only secrets — never prefix them with `NEXT_PUBLIC_`, and never reference them from a Client Component. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe to expose to the browser; Row Level Security (RLS), not secrecy of the anon key, is what protects your data (see §3).
+`ANTHROPIC_API_KEY` is a server-only secret — never prefix it with `NEXT_PUBLIC_`, and never reference it from a Client Component. `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` are safe to expose to the browser; Row Level Security (RLS), not secrecy of the anon key, is what protects your data (see §3). The app does not use the Supabase service-role key, so don't add it anywhere.
 
 ## 2. Get an Anthropic API key
 
@@ -84,7 +83,7 @@ The key is read only in server-side code (`lib/anthropic/client.ts`, guarded by 
 2. Once it's provisioned, go to **Project Settings → API** and copy:
    - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
    - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (kept for admin/setup scripts; the app itself doesn't currently use it at runtime — never expose it to the browser if you do use it later)
+   - (The **service_role** key shown on the same page is not needed. The app never uses it, so leave it out of `.env.local` and out of Vercel.)
 3. **Apply the database migrations.** In the Supabase dashboard, open **SQL Editor**, and run the two files in `supabase/migrations/` **in order**:
    - `0001_init.sql` — creates the three tables and their indexes
    - `0002_rls.sql` — enables Row Level Security and the ownership policies
@@ -98,11 +97,13 @@ The key is read only in server-side code (`lib/anthropic/client.ts`, guarded by 
 npm run dev
 ```
 
+Local development uses whatever Supabase project `.env.local` points at, so if that is your real project you are working with real data.
+
 Open <http://localhost:3000> — you'll land on `/login` first (see §5).
 
 ## 5. Authentication
 
-This is a single-user app, so authentication is deliberately minimal: **Supabase Auth with email/password**, one account you create yourself in the Supabase dashboard (§3 step 4). There's no self-serve sign-up route. The actual security boundary is Row Level Security on every table (`user_id = auth.uid()`), not the login screen itself — so even if someone bypassed the `/login` redirect, they couldn't read or write another user's rows (there's only ever one user's rows here, but this is future-proofed for free).
+This is a single-user app, so authentication is deliberately minimal: **Supabase Auth with email/password**, one account you create yourself in the Supabase dashboard (§3 step 4). There's no self-serve sign-up route. Because a sign-up request can still be sent to Supabase directly, also turn off new sign-ups in the Supabase dashboard's Authentication settings (look for the option that allows new users to sign up) so the app stays private. The actual security boundary is Row Level Security on every table (`user_id = auth.uid()`), not the login screen itself — so even if someone bypassed the `/login` redirect, they couldn't read or write another user's rows (there's only ever one user's rows here, but this is future-proofed for free).
 
 ## 6. Project structure
 
@@ -137,10 +138,16 @@ The model id lives in exactly one place: [`lib/anthropic/constants.ts`](lib/anth
 
 1. Push this repository to GitHub (or GitLab/Bitbucket).
 2. In Vercel, **Import Project** and select the repo.
-3. Add the four environment variables from `.env.local` under **Settings → Environment Variables** (Production and Preview).
+3. Under **Settings → Environment Variables** add: `ANTHROPIC_API_KEY` for **Production only**; `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for Production and Preview.
 4. Build command / output: Vercel auto-detects Next.js — no changes needed.
 5. Deploy. All the app's real-time browser APIs (Web Speech, Web Audio, Wake Lock, Service Worker) require **HTTPS**, which Vercel provides by default.
 6. Re-run the SQL migrations against your Supabase project before (or right after) your first production deploy if you haven't already (§3).
+
+### Branches, previews and merging
+
+- Work on a feature branch and open a pull request into `main`. Merging into `main` is what deploys production.
+- Every pull request runs GitHub Actions (`.github/workflows/ci.yml`): lint, TypeScript and tests, with no secrets. Require the `verify` check (and a pull request) in the repository's branch protection so a failing check blocks the merge.
+- Each branch also gets a Vercel preview at its own URL (protected by Vercel login). Previews use the same database as production and never run migrations — run SQL by hand, after reviewing it (§3).
 
 ## 9. Installing on iPad / iPhone
 
@@ -153,8 +160,8 @@ The model id lives in exactly one place: [`lib/anthropic/constants.ts`](lib/anth
 
 ## 10. Known Safari / iPad limitations
 
-- **Backgrounding**: if iPadOS fully suspends Safari (e.g., you switch apps for an extended period, or the OS reclaims memory), timing can't be guaranteed while suspended. The app is built to recover correctly the instant you return to it — it recomputes your exact position from real timestamps rather than resuming a stale countdown — but it can't run science while it isn't running at all. Keep the app in the foreground for the most reliable session.
-- **Speech + music**: this app does not and cannot control Spotify/YouTube Music's volume or playback. It keeps its own spoken announcements short and offers transition tones and a fully speech-off mode so it stays usable no matter how your phone mixes audio.
+- **Backgrounding**: if iPadOS fully suspends Safari (e.g., you switch apps for an extended period, or the OS reclaims memory), timing can't be guaranteed while suspended. The app is built to recover correctly the instant you return to it — it recomputes your exact position from real timestamps rather than resuming a stale countdown — but it can't run code while it isn't running at all. Keep the app in the foreground for the most reliable session.
+- **Speech + music**: this app does not currently control Spotify/YouTube Music's volume or playback. It keeps its own spoken announcements short and offers transition tones and a fully speech-off mode so it stays usable no matter how your phone mixes audio. Known, unresolved issue: on some recent iOS/iPadOS versions, announcements have been reported to interrupt music from other apps instead of just lowering its volume.
 - **Voice selection**: available voices come from `speechSynthesis.getVoices()`, which varies by device/OS version and can load asynchronously on first use.
 - **Wake Lock**: supported on modern iOS/iPadOS Safari, but is feature-detected — if unsupported, the workout still runs correctly, your screen may just lock.
 - **Add to Home Screen** must be done from Safari itself; other browsers on iOS use Safari's engine but don't expose the same install affordance.
@@ -180,12 +187,14 @@ This is the scenario the whole app is built around — test it for real before t
 ## 12. Testing, linting, building
 
 ```bash
-npm run test        # Vitest — 100 tests: timer engine, duration math, dates, calendar, schema, AI layer (mocked)
+npm run test        # Vitest — 140 tests: timer engine, duration math, dates, calendar, schema, AI layer (mocked)
 npm run lint         # ESLint
 npm run typecheck    # tsc --noEmit (strict mode)
 npm run build        # production build
 npm run verify       # all four, in order — this is what should be clean before you trust a change
 ```
+
+GitHub Actions runs lint, typecheck and the tests on every pull request into `main` (`.github/workflows/ci.yml`).
 
 The AI test suite (`tests/ai/`) **never calls the real Anthropic API** — `getAnthropicClient` is mocked at the module boundary, so these tests run offline and don't cost anything or need a key.
 
