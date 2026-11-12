@@ -28,7 +28,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-4">
+    <div className="flex min-h-safe-dvh items-center justify-center bg-bg px-4">
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6">
         <h1 className="mb-1 text-2xl font-bold">Workout Caller</h1>
         <p className="mb-6 text-sm text-text-muted">Sign in to continue.</p>

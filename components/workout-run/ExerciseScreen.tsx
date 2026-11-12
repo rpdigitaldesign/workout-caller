@@ -29,7 +29,7 @@ export function ExerciseScreen({
     segment.durationSeconds && snapshot.remainingMs !== null ? 1 - snapshot.remainingMs / (segment.durationSeconds * 1000) : 0;
 
   return (
-    <div className="flex h-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 short:py-3 text-center">
+    <div className="flex h-safe-dvh flex-col items-center overflow-hidden bg-bg px-6 py-8 short:py-3 text-center">
       <div className="shrink-0">
         {snapshot.roundNumber !== null && (
           <p className="text-lg font-semibold uppercase tracking-widest text-text-muted short:text-sm">

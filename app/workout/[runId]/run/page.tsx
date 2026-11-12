@@ -52,12 +52,12 @@ export default function RunWorkoutPage() {
   }, [isRecovery, params.runId]);
 
   if (source === undefined) {
-    return <div className="flex min-h-dvh items-center justify-center bg-bg text-text-muted">Loading…</div>;
+    return <div className="flex min-h-safe-dvh items-center justify-center bg-bg text-text-muted">Loading…</div>;
   }
 
   if (source === null) {
     return (
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg text-center">
+      <div className="flex min-h-safe-dvh flex-col items-center justify-center gap-4 bg-bg text-center">
         <p className="text-text-muted">This workout couldn&apos;t be loaded — it may have expired.</p>
         <button className="text-accent underline" onClick={() => router.push('/')}>
           Back to Home

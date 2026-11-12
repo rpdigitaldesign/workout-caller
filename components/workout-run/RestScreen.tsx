@@ -31,7 +31,7 @@ export function RestScreen({
     segment.durationSeconds && snapshot.remainingMs !== null ? 1 - snapshot.remainingMs / (segment.durationSeconds * 1000) : 0;
 
   return (
-    <div className="flex h-dvh flex-col items-center overflow-hidden bg-[#071a26] px-6 py-8 short:py-3 text-center">
+    <div className="flex h-safe-dvh flex-col items-center overflow-hidden bg-[#071a26] px-6 py-8 short:py-3 text-center">
       <p className="mt-2 shrink-0 text-4xl font-extrabold uppercase tracking-widest text-rest sm:text-5xl short:text-2xl">
         Rest
       </p>

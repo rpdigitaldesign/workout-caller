@@ -1,5 +1,6 @@
 'use client';
 
+import { BackButton } from '@/components/ui/BackButton';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
@@ -100,13 +101,7 @@ export default function ReviewWorkoutPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="mb-2 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="focus-ring -ml-1 rounded-lg px-1 py-1 text-sm font-semibold text-text-muted hover:text-text"
-        >
-          ‹ Back
-        </button>
+        <BackButton onClick={handleBack} />
         <h1 className="text-2xl font-bold">Review Workout</h1>
       </div>
       {draft.parentTemplateId && <p className="mb-4 text-sm text-text-muted">Based on an existing workout</p>}
@@ -132,7 +127,6 @@ export default function ReviewWorkoutPage() {
         onStart={handleStart}
         onSaveAsTemplate={handleSaveAsTemplate}
         onSchedule={() => setScheduling(true)}
-        onBack={handleBack}
       />
       <ConfirmDialog
         open={confirmingBack}
