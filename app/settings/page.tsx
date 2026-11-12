@@ -9,6 +9,7 @@ import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { signOutThisDevice, unsyncedWorkoutsWarning } from '@/lib/auth/signOut';
+import { buildDataExport, downloadJson, exportFileName } from '@/lib/export/exportData';
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -65,6 +66,8 @@ export default function SettingsPage() {
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -87,6 +90,22 @@ export default function SettingsPage() {
       setPendingCount(result.remaining);
     } finally {
       setFlushing(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!user) return;
+    setExporting(true);
+    setExportMessage(null);
+    try {
+      const data = await buildDataExport(createSupabaseBrowserClient(), user.id);
+      downloadJson(data, exportFileName());
+      const { workout_templates: t, scheduled_workouts: s, workout_sessions: h } = data.tables;
+      setExportMessage(`Downloaded: ${t.length} saved workouts, ${s.length} scheduled, ${h.length} in history.`);
+    } catch {
+      setExportMessage("Couldn't create the backup. Check your connection and try again.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -234,6 +253,15 @@ export default function SettingsPage() {
             {flushing ? 'Syncing…' : 'Sync now'}
           </button>
         )}
+        <button
+          onClick={() => void handleExport()}
+          disabled={exporting || !user}
+          className="focus-ring mt-3 block min-h-11 rounded-lg border border-border px-4 text-sm text-text"
+        >
+          {exporting ? 'Preparing…' : 'Download my data (JSON)'}
+        </button>
+        <p className="mt-1 text-xs text-text-muted">A readable backup of your workouts, schedule and history.</p>
+        {exportMessage && <p className="mt-1 text-sm text-text-muted">{exportMessage}</p>}
       </Card>
 
       <Card className="mt-4">
