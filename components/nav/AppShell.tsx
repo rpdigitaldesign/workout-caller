@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAutoSyncSessions } from '@/hooks/useAutoSyncSessions';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home' },
@@ -18,6 +19,7 @@ function isActive(pathname: string, href: string): boolean {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  useAutoSyncSessions();
 
   // Active workout runs and /login get a distraction-free, chrome-free layout.
   const isFocusMode = /^\/workout\/[^/]+\/run/.test(pathname) || pathname === '/login';
