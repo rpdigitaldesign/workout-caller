@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { useSpeechSettings } from '@/hooks/useSpeechSettings';
 import { listPendingSessions, flushPendingSessions } from '@/lib/offline/syncQueue';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
 import { useAuthUser } from '@/hooks/useAuthUser';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { signOutThisDevice, unsyncedWorkoutsWarning } from '@/lib/auth/signOut';
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -58,6 +61,10 @@ export default function SettingsPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [flushing, setFlushing] = useState(false);
+  const router = useRouter();
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -80,6 +87,46 @@ export default function SettingsPage() {
       setPendingCount(result.remaining);
     } finally {
       setFlushing(false);
+    }
+  };
+
+  const finishSignOut = async () => {
+    setSigningOut(true);
+    setSignOutError(null);
+    const message = await signOutThisDevice(createSupabaseBrowserClient());
+    setSigningOut(false);
+    setConfirmSignOut(false);
+    if (message) {
+      setSignOutError(`Couldn't sign out: ${message}`);
+      return;
+    }
+    router.push('/login');
+    router.refresh();
+  };
+
+  const handleSignOutClick = async () => {
+    setSignOutError(null);
+    const queue = await listPendingSessions(); // re-read: the count shown above may be stale
+    setPendingCount(queue.length);
+    if (queue.length > 0) {
+      setConfirmSignOut(true);
+      return;
+    }
+    await finishSignOut();
+  };
+
+  const handleSyncThenSignOut = async () => {
+    setSigningOut(true);
+    try {
+      const result = await flushPendingSessions(createSupabaseBrowserClient());
+      setPendingCount(result.remaining);
+      if (result.remaining === 0) {
+        await finishSignOut();
+        return;
+      }
+      setSignOutError("Some workouts couldn't sync (are you offline?). They are still saved on this device.");
+    } finally {
+      setSigningOut(false);
     }
   };
 
@@ -188,6 +235,32 @@ export default function SettingsPage() {
           </button>
         )}
       </Card>
+
+      <Card className="mt-4">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">Account</h2>
+        {user?.email && <p className="text-sm text-text-muted">Signed in as {user.email}</p>}
+        <p className="mt-1 text-sm text-text-muted">Signing out only affects this device. Your other devices stay signed in.</p>
+        <button
+          onClick={() => void handleSignOutClick()}
+          disabled={signingOut}
+          className="focus-ring mt-3 min-h-11 rounded-lg border border-border px-4 text-sm text-text"
+        >
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </button>
+        {signOutError && <p className="mt-2 text-sm text-danger">{signOutError}</p>}
+      </Card>
+
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out with unsynced workouts?"
+        description={unsyncedWorkoutsWarning(pendingCount ?? 0)}
+        confirmLabel="Sign out anyway"
+        initialFocus="cancel"
+        danger
+        extraAction={{ label: 'Sync, then sign out', onClick: () => void handleSyncThenSignOut() }}
+        onConfirm={() => void finishSignOut()}
+        onCancel={() => setConfirmSignOut(false)}
+      />
 
       <p className="mt-6 text-xs text-text-muted">
         Workout text is sent to Anthropic only when you use AI parsing, modification, or command features.
