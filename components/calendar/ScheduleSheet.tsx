@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
+import { localDateStr } from '@/lib/calendar/today';
 
 export interface ScheduleSheetProps {
   open: boolean;
@@ -13,7 +14,7 @@ export interface ScheduleSheetProps {
 }
 
 function todayDateStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr();
 }
 
 export function ScheduleSheet({ open, workoutTitle, defaultDate, onClose, onConfirm }: ScheduleSheetProps) {

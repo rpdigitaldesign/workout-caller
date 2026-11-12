@@ -1,6 +1,7 @@
 'use client';
 
 import { PasteWorkoutBox } from '@/components/home/PasteWorkoutBox';
+import { TodayCard } from '@/components/home/TodayCard';
 import { ComingUpList } from '@/components/home/ComingUpList';
 import { RecentWorkoutsList } from '@/components/home/RecentWorkoutsList';
 import { CommandInput } from '@/components/home/CommandInput';
@@ -14,6 +15,7 @@ export default function HomePage() {
     <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-8">
       <h1 className="text-2xl font-bold">Workout Caller</h1>
       {recovery && <RecoveryPrompt recovery={recovery} onDiscard={discard} />}
+      <TodayCard />
       <PasteWorkoutBox />
       <CommandInput />
       <ComingUpList />
