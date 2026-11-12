@@ -6,6 +6,7 @@ import { v4 as uuid } from 'uuid';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { MoreMenu } from '@/components/ui/MoreMenu';
 import { ScheduleSheet } from '@/components/calendar/ScheduleSheet';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
@@ -102,25 +103,21 @@ function TemplateCard({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="md" onClick={handleStart}>
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="md" onClick={handleStart} className="flex-1">
           Start Now
         </Button>
         <Button size="md" variant="secondary" onClick={() => setScheduling(true)}>
           Schedule
         </Button>
-        <Button size="md" variant="secondary" onClick={() => router.push(`/workouts/${template.id}`)}>
-          Edit
-        </Button>
-        <Button size="md" variant="secondary" onClick={handleDuplicate}>
-          Duplicate
-        </Button>
-        <Button size="md" variant="secondary" onClick={() => setModifying((v) => !v)}>
-          Create Modified Version
-        </Button>
-        <Button size="md" variant="danger" onClick={() => setConfirmDelete(true)}>
-          Delete
-        </Button>
+        <MoreMenu
+          items={[
+            { label: 'Edit', onSelect: () => router.push(`/workouts/${template.id}`) },
+            { label: 'Duplicate', onSelect: () => void handleDuplicate() },
+            { label: 'Create Modified Version', onSelect: () => setModifying((v) => !v) },
+            { label: 'Delete', danger: true, onSelect: () => setConfirmDelete(true) },
+          ]}
+        />
       </div>
 
       {modifying && (
