@@ -96,11 +96,48 @@ export async function skipScheduledWorkout(
   return toDomain(data as ScheduledWorkoutRow);
 }
 
-export async function cancelScheduledWorkout(client: SupabaseClient, id: string): Promise<ScheduledWorkout> {
+/**
+ * Removes a planned workout entirely, as though it had never been scheduled.
+ * Completed workouts are never deleted here — they are history (the session
+ * record is separate and untouched either way).
+ *
+ * This replaced the old "cancel" (which kept the row with status 'cancelled' and
+ * left an x on the calendar). Rows already cancelled by the old behaviour are not
+ * deleted from the database; the list queries below simply hide them.
+ */
+export async function deleteScheduledWorkout(client: SupabaseClient, id: string): Promise<void> {
+  const { error } = await client.from('scheduled_workouts').delete().eq('id', id).neq('status', 'completed');
+  if (error) throw error;
+}
+
+export interface UpdateScheduledWorkoutInput {
+  workoutSnapshot: Workout;
+  scheduledDate: string;
+  scheduledTime: string | null;
+  notes: string | null;
+}
+
+/**
+ * Edits one planned workout: its exercises/rounds/rests, date, time and notes.
+ * Only this scheduled item changes — never the template it came from, and never
+ * other scheduled copies. The title follows the workout's own title.
+ */
+export async function updateScheduledWorkout(
+  client: SupabaseClient,
+  id: string,
+  input: UpdateScheduledWorkoutInput,
+): Promise<ScheduledWorkout> {
   const { data, error } = await client
     .from('scheduled_workouts')
-    .update({ status: 'cancelled' })
+    .update({
+      workout_snapshot: input.workoutSnapshot,
+      title: input.workoutSnapshot.title,
+      scheduled_date: input.scheduledDate,
+      scheduled_time: input.scheduledTime,
+      notes: input.notes,
+    })
     .eq('id', id)
+    .eq('status', 'scheduled')
     .select()
     .single();
   if (error) throw error;
@@ -133,6 +170,7 @@ export async function listScheduledWorkoutsBetween(
     .from('scheduled_workouts')
     .select()
     .eq('user_id', userId)
+    .neq('status', 'cancelled') // legacy rows from the old "cancel"; hidden, not deleted
     .gte('scheduled_date', startDate)
     .lte('scheduled_date', endDate)
     .order('scheduled_date', { ascending: true });
@@ -172,6 +210,7 @@ export async function listScheduledWorkoutsOnDate(
     .select()
     .eq('user_id', userId)
     .eq('scheduled_date', date)
+    .neq('status', 'cancelled') // legacy rows from the old "cancel"; hidden, not deleted
     .order('scheduled_time', { ascending: true, nullsFirst: false });
   if (error) throw error;
   return (data as ScheduledWorkoutRow[]).map(toDomain);

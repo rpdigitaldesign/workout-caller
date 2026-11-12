@@ -35,6 +35,7 @@ export function buildCalendarItems(scheduled: ScheduledWorkout[], sessions: Work
 
   for (const s of scheduled) {
     if (s.status === 'completed') continue; // represented by its session instead
+    if (s.status === 'cancelled') continue; // legacy rows from the old "cancel"; treated as deleted
     push(s.scheduledDate, {
       id: s.id,
       kind: 'scheduled',

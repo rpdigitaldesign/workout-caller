@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { QuickAddSheet } from '@/components/calendar/QuickAddSheet';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { createSupabaseBrowserClient } from '@/lib/database/supabaseClient';
-import { listScheduledWorkoutsOnDate, rescheduleWorkout, skipScheduledWorkout, cancelScheduledWorkout } from '@/lib/database/scheduled';
+import { listScheduledWorkoutsOnDate, rescheduleWorkout, skipScheduledWorkout, deleteScheduledWorkout } from '@/lib/database/scheduled';
 import { listSessionsBetween } from '@/lib/database/sessions';
 import { saveDraft } from '@/lib/workout/draftStore';
 import { formatDuration } from '@/lib/workout/duration';
@@ -19,7 +19,7 @@ import type { ScheduledWorkout, WorkoutSession } from '@/lib/workout/schema';
 function ScheduledCard({ item, onChanged }: { item: ScheduledWorkout; onChanged: () => void }) {
   const router = useRouter();
   const [confirmSkip, setConfirmSkip] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const [newDate, setNewDate] = useState(item.scheduledDate);
 
@@ -39,14 +39,17 @@ function ScheduledCard({ item, onChanged }: { item: ScheduledWorkout; onChanged:
         <Button size="md" onClick={handleStart}>
           Start
         </Button>
+        <Button size="md" variant="secondary" onClick={() => router.push(`/calendar/scheduled/${item.id}`)}>
+          Edit
+        </Button>
         <Button size="md" variant="secondary" onClick={() => setRescheduling((v) => !v)}>
           Reschedule
         </Button>
         <Button size="md" variant="secondary" onClick={() => setConfirmSkip(true)}>
           Skip
         </Button>
-        <Button size="md" variant="danger" onClick={() => setConfirmCancel(true)}>
-          Cancel
+        <Button size="md" variant="danger" onClick={() => setConfirmDelete(true)}>
+          Delete
         </Button>
       </div>
       {rescheduling && (
@@ -84,17 +87,20 @@ function ScheduledCard({ item, onChanged }: { item: ScheduledWorkout; onChanged:
         onCancel={() => setConfirmSkip(false)}
       />
       <ConfirmDialog
-        open={confirmCancel}
-        title="Cancel this scheduled workout?"
-        confirmLabel="Cancel Workout"
+        open={confirmDelete}
+        title="Delete this scheduled workout?"
+        description="It is removed from your calendar as though it was never scheduled. This cannot be undone. (To keep a record instead, use Skip.)"
+        confirmLabel="Delete"
+        cancelLabel="Keep it"
         danger
+        initialFocus="cancel"
         onConfirm={async () => {
           const client = createSupabaseBrowserClient();
-          await cancelScheduledWorkout(client, item.id);
-          setConfirmCancel(false);
+          await deleteScheduledWorkout(client, item.id);
+          setConfirmDelete(false);
           onChanged();
         }}
-        onCancel={() => setConfirmCancel(false)}
+        onCancel={() => setConfirmDelete(false)}
       />
     </Card>
   );
