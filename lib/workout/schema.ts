@@ -133,6 +133,24 @@ export type ScheduledWorkout = z.infer<typeof ScheduledWorkoutSchema>;
 export const SessionStatusEnum = z.enum(['completed', 'partial', 'abandoned']);
 export type SessionStatus = z.infer<typeof SessionStatusEnum>;
 
+/** Largest weight accepted for one set, in pounds (a sanity cap, not a recommendation). */
+export const MAX_SET_WEIGHT_LB = 2000;
+
+/**
+ * The weight used for one set of one exercise during a session, in pounds. Identity is
+ * (origin, stepId, round): `round` is the 1-based round for main-section sets and null
+ * for warmup/cooldown. `name` is stored so history and "last time" suggestions still make
+ * sense after the exercise is renamed or the workout is deleted.
+ */
+export const SetResultSchema = z.object({
+  stepId: z.string().min(1),
+  name: z.string().trim().min(1).max(LIMITS.STEP_NAME_MAX),
+  origin: z.enum(['warmup', 'main', 'cooldown']),
+  round: z.number().int().positive().nullable(),
+  weightLb: z.number().nonnegative().max(MAX_SET_WEIGHT_LB),
+});
+export type SetResult = z.infer<typeof SetResultSchema>;
+
 export const WorkoutSessionSchema = z.object({
   id: z.uuid(),
   userId: z.uuid(),
@@ -150,6 +168,7 @@ export const WorkoutSessionSchema = z.object({
   totalIntervals: z.number().int().nonnegative().nullable().default(null),
   stoppedAtStepId: z.uuid().nullable().default(null),
   notes: z.string().trim().max(LIMITS.NOTES_MAX).nullable().default(null),
+  setResults: z.array(SetResultSchema).default([]),
   createdAt: z.iso.datetime(),
 });
 export type WorkoutSession = z.infer<typeof WorkoutSessionSchema>;

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { WorkoutSchema, type Workout, type WorkoutSession } from '@/lib/workout/schema';
+import { parseSetResults } from '@/lib/workout/setResults';
+import type { SetResult } from '@/lib/workout/schema';
 import { migrateWorkout } from '@/lib/workout/migrate';
 import type { WorkoutSessionRow } from './rows';
 
@@ -19,6 +21,7 @@ function toDomain(row: WorkoutSessionRow): WorkoutSession {
     totalIntervals: row.total_intervals,
     stoppedAtStepId: row.stopped_at_step_id,
     notes: row.notes,
+    setResults: parseSetResults(row.set_results),
     createdAt: row.created_at,
   };
 }
@@ -37,6 +40,8 @@ export interface CreateSessionInput {
   totalIntervals?: number | null;
   stoppedAtStepId?: string | null;
   notes?: string | null;
+  /** Weights recorded per set; omitted/empty when none were logged. */
+  setResults?: SetResult[];
 }
 
 export async function createSession(client: SupabaseClient, input: CreateSessionInput): Promise<WorkoutSession> {
@@ -56,6 +61,9 @@ export async function createSession(client: SupabaseClient, input: CreateSession
       total_intervals: input.totalIntervals ?? null,
       stopped_at_step_id: input.stoppedAtStepId ?? null,
       notes: input.notes ?? null,
+      // Only send the column when there is something to store, so a session without weights
+      // saves exactly as it did before weights existed.
+      ...(input.setResults && input.setResults.length > 0 ? { set_results: input.setResults } : {}),
     })
     .select()
     .single();
@@ -148,4 +156,24 @@ export async function listTemplateUsageRows(
     .limit(1000);
   if (error) throw error;
   return data as Array<{ template_id: string | null; started_at: string }>;
+}
+
+/**
+ * Recent sessions' recorded weights (newest first), used to suggest "last time's" weight.
+ * Fetches only the two columns needed. Resolves to [] if the column is unavailable.
+ */
+export async function listRecentSetResultRows(
+  client: SupabaseClient,
+  userId: string,
+  limit = 30,
+): Promise<Array<{ set_results: unknown; started_at: string }>> {
+  const { data, error } = await client
+    .from('workout_sessions')
+    .select('set_results, started_at')
+    .eq('user_id', userId)
+    .not('set_results', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data as Array<{ set_results: unknown; started_at: string }>;
 }

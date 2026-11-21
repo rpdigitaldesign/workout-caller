@@ -51,5 +51,7 @@ export interface WorkoutSessionRow {
   total_intervals: number | null;
   stopped_at_step_id: string | null;
   notes: string | null;
+  /** Added by migration 0003; null/absent for sessions recorded before weights existed. */
+  set_results?: unknown;
   created_at: string;
 }

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { v4 as uuid } from 'uuid';
 import { useWorkoutTimer } from '@/hooks/useWorkoutTimer';
 import { useLeaveGuard } from '@/hooks/useLeaveGuard';
+import { useSetResults } from '@/hooks/useSetResults';
+import { segmentSetKey } from '@/lib/workout/setResults';
+import type { Segment } from '@/lib/workout/engine';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { useSpeechSettings } from '@/hooks/useSpeechSettings';
@@ -47,7 +50,33 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
   const restoredRef = useRef(false);
   const completionHandledRef = useRef(false);
 
+  const sets = useSetResults(userId, recoveryData?.setResults ?? []);
   const snapshot = timer.snapshot;
+
+  // Which set is the weight for? The set just finished while resting; or, for a set with no
+  // rest after it (e.g. the last exercise), the set in progress.
+  const weightSegment: Segment | null =
+    snapshot.state === 'rest' || snapshot.state === 'roundRest'
+      ? snapshot.previousSegment?.kind === 'exercise'
+        ? snapshot.previousSegment
+        : null
+      : snapshot.state === 'exercise' && (snapshot.nextSegment === null || snapshot.nextSegment.kind === 'exercise')
+        ? snapshot.currentSegment
+        : null;
+  const weightProps = (() => {
+    if (!weightSegment) return null;
+    const setId = segmentSetKey(weightSegment);
+    if (setId === null) return null;
+    const { logged, suggestion } = sets.entryFor(weightSegment);
+    const set = weightSegment.roundNumber !== null && snapshot.totalRounds > 1 ? ` · set ${weightSegment.roundNumber}` : '';
+    return {
+      setId,
+      label: `${weightSegment.name}${set}`,
+      logged,
+      suggestion,
+      onLog: (w: number | null) => sets.log(weightSegment, w),
+    };
+  })();
   const isRunActive = phase === 'running' && snapshot.state !== 'idle' && snapshot.state !== 'complete';
 
   useWakeLock(isRunActive);
@@ -88,10 +117,11 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
       segmentIndex: snapshot.segmentIndex,
       remainingMs: snapshot.remainingMs,
       elapsedTotalMsAtSave: snapshot.elapsedTotalMs,
+      setResults: sets.results,
       savedAt: new Date().toISOString(),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.segmentIndex, snapshot.state]);
+  }, [snapshot.segmentIndex, snapshot.state, sets.results]);
 
   // Handle completion: save the session (offline-safe) and clear recovery state.
   useEffect(() => {
@@ -121,6 +151,7 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
           actualDurationSeconds: Math.round(snapshot.elapsedTotalMs / 1000),
           completedIntervals: snapshot.segmentIndex + 1,
           totalIntervals: snapshot.totalSegments,
+          setResults: sets.results,
         });
         setSaveState(synced ? 'synced' : 'queued');
       } catch {
@@ -201,10 +232,17 @@ export function ActiveRun({ runId, workout, templateId, scheduledWorkoutId, isRe
           onSkip={timer.skipForward}
           onPrevious={timer.skipBackward}
           onAdvanceManual={timer.advanceManualStep}
+          weight={weightProps}
         />
       )}
       {(snapshot.state === 'rest' || snapshot.state === 'roundRest') && (
-        <RestScreen snapshot={snapshot} onPause={timer.pause} onSkip={timer.skipForward} onPrevious={timer.skipBackward} />
+        <RestScreen
+          snapshot={snapshot}
+          onPause={timer.pause}
+          onSkip={timer.skipForward}
+          onPrevious={timer.skipBackward}
+          weight={weightProps}
+        />
       )}
       {snapshot.state === 'paused' && (
         <PauseOverlay snapshot={snapshot} onResume={handleResume} onEndEarly={() => setConfirmEnd(true)} />

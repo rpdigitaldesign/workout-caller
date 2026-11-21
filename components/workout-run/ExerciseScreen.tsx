@@ -3,6 +3,7 @@ import { formatDuration } from '@/lib/workout/duration';
 import { describeNextUp } from '@/lib/workout/nextUp';
 import { ProgressBar } from './ProgressBar';
 import { Button } from '@/components/ui/Button';
+import { WeightLogger, type WeightLoggerProps } from './WeightLogger';
 
 /**
  * Height-budget contract: this root is `h-dvh overflow-hidden`, never
@@ -17,12 +18,15 @@ export function ExerciseScreen({
   onSkip,
   onPrevious,
   onAdvanceManual,
+  weight,
 }: {
   snapshot: TimerSnapshot;
   onPause: () => void;
   onSkip: () => void;
   onPrevious: () => void;
   onAdvanceManual: () => void;
+  /** Shown only for a set that has no rest after it (so it can't be logged on the rest screen). */
+  weight?: (WeightLoggerProps & { setId: string }) | null;
 }) {
   const segment = snapshot.currentSegment!;
   const nextUp = describeNextUp(snapshot);
@@ -62,6 +66,11 @@ export function ExerciseScreen({
       </div>
 
       <div className="w-full max-w-md shrink-0 self-center">
+        {weight && (
+          <div className="mb-3 flex justify-center short:mb-1">
+            <WeightLogger key={weight.setId} label={weight.label} logged={weight.logged} suggestion={weight.suggestion} onLog={weight.onLog} />
+          </div>
+        )}
         <ProgressBar fraction={fraction} />
         <div className="mt-6 flex justify-center gap-4 short:mt-2 short:gap-2">
           {snapshot.isManualAdvance ? (

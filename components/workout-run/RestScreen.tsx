@@ -3,6 +3,7 @@ import { formatDuration } from '@/lib/workout/duration';
 import { formatSegmentAmount } from '@/lib/workout/nextUp';
 import { ProgressBar } from './ProgressBar';
 import { Button } from '@/components/ui/Button';
+import { WeightLogger, type WeightLoggerProps } from './WeightLogger';
 
 /**
  * Deliberately distinct from ExerciseScreen beyond just color: a
@@ -20,11 +21,14 @@ export function RestScreen({
   onPause,
   onSkip,
   onPrevious,
+  weight,
 }: {
   snapshot: TimerSnapshot;
   onPause: () => void;
   onSkip: () => void;
   onPrevious: () => void;
+  /** Weight entry for the set that was just completed. */
+  weight?: (WeightLoggerProps & { setId: string }) | null;
 }) {
   const segment = snapshot.currentSegment!;
   const seconds = snapshot.remainingMs !== null ? Math.ceil(snapshot.remainingMs / 1000) : null;
@@ -53,6 +57,11 @@ export function RestScreen({
       </div>
 
       <div className="w-full max-w-md shrink-0">
+        {weight && (
+          <div className="mb-3 flex justify-center short:mb-1">
+            <WeightLogger key={weight.setId} label={weight.label} logged={weight.logged} suggestion={weight.suggestion} onLog={weight.onLog} />
+          </div>
+        )}
         <ProgressBar fraction={fraction} />
         <div className="mt-6 flex justify-center gap-4 short:mt-2 short:gap-2">
           <Button
