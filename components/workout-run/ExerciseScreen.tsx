@@ -74,7 +74,12 @@ export function ExerciseScreen({
         <ProgressBar fraction={fraction} />
         <div className="mt-6 flex justify-center gap-4 short:mt-2 short:gap-2">
           {snapshot.isManualAdvance ? (
-            <Button size="lg" onClick={onAdvanceManual} className="flex-1 short:min-h-10 short:py-2 short:text-sm">
+            <Button
+              size="lg"
+              onClick={onAdvanceManual}
+              aria-label="Next"
+              className="min-h-24 flex-1 text-4xl font-extrabold uppercase tracking-wide short:min-h-14 short:py-2 short:text-2xl"
+            >
               Next
             </Button>
           ) : (
