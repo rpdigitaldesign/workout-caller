@@ -1,5 +1,6 @@
 'use client';
 
+import { formatWeights, groupSetResults } from '@/lib/workout/setResults';
 import { BackButton } from '@/components/ui/BackButton';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -47,6 +48,20 @@ export default function SessionDetailPage() {
         {new Date(session.startedAt).toLocaleString()} ·{' '}
         {session.actualDurationSeconds !== null ? formatDuration(session.actualDurationSeconds) : '—'} · {session.status}
       </p>
+
+      {session.setResults.length > 0 && (
+        <Card className="mb-4">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">Weights</h2>
+          <ul>
+            {groupSetResults(session.setResults).map((g) => (
+              <li key={g.name} className="flex justify-between gap-3 py-1">
+                <span>{g.name}</span>
+                <span className="text-text-muted">{formatWeights(g.weights)}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {workout.warmup.length > 0 && (
         <Card className="mb-4">

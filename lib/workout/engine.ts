@@ -57,6 +57,8 @@ export interface TimerSnapshot {
   nextSegment: Segment | null;
   /** The next segment that is an actual exercise (skips any rest in between); null when none remain. */
   nextExercise: Segment | null;
+  /** The segment just before the current one (the set just finished, during a rest); null at the start. */
+  previousSegment: Segment | null;
   prevAvailable: boolean;
   completionReason: CompletionReason;
 }
@@ -326,6 +328,7 @@ export class WorkoutEngine {
     const segment = this.currentSegmentOrNull();
     const nextSegment = this.computeNextSegment();
     const nextExercise = this.computeNextExercise();
+    const previousSegment = this.segmentIndex > 0 ? (this.segments[this.segmentIndex - 1] ?? null) : null;
 
     let remainingMs: number | null;
     if (this.state === 'paused') {
@@ -355,6 +358,7 @@ export class WorkoutEngine {
       currentSegment: segment,
       nextSegment,
       nextExercise,
+      previousSegment,
       prevAvailable: this.segmentIndex > 0,
       completionReason: this.completionReason,
     };

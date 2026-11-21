@@ -1,5 +1,5 @@
 import { get, set, del } from 'idb-keyval';
-import type { Workout } from '@/lib/workout/schema';
+import type { SetResult, Workout } from '@/lib/workout/schema';
 
 const ACTIVE_WORKOUT_KEY = 'workout-caller:active-workout';
 
@@ -21,6 +21,8 @@ export interface ActiveWorkoutRecovery {
   segmentIndex: number;
   remainingMs: number | null;
   elapsedTotalMsAtSave: number;
+  /** Weights logged so far this run (absent in records saved before weights existed). */
+  setResults?: SetResult[];
   savedAt: string;
 }
 
